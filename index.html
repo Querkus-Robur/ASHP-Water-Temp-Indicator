@@ -2,22 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
-  <meta
-    name="theme-color"
-    content="#0077c8"
-  >
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0077c8">
 
   <title>Daikin Altherma Monitor</title>
 
   <style>
     :root {
-      color-scheme: light;
       --daikin-blue: #0077c8;
       --daikin-blue-dark: #005fa3;
       --background: #f4f6f8;
@@ -26,13 +17,10 @@
       --text: #1a202c;
       --muted: #64748b;
       --secondary: #475569;
-      --success: #15803d;
-      --success-bg: #f0fdf4;
-      --warning: #a16207;
-      --warning-bg: #fefce8;
       --error: #b91c1c;
       --error-bg: #fef2f2;
-      --border: #e2e8f0;
+      --warning: #a16207;
+      --warning-bg: #fefce8;
     }
 
     * {
@@ -60,7 +48,7 @@
     .card {
       background: var(--card);
       border-radius: 16px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.09);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.09);
       padding: 1.5rem;
       max-width: 430px;
       width: 100%;
@@ -107,7 +95,6 @@
       font-size: 1.65rem;
       font-weight: 700;
       margin-top: 0.3rem;
-      word-break: break-word;
     }
 
     .sub {
@@ -117,41 +104,9 @@
       line-height: 1.4;
     }
 
-    .message {
-      border-radius: 10px;
-      padding: 0.8rem;
-      margin: 1rem 0;
-      font-size: 0.88rem;
-      line-height: 1.4;
-    }
-
-    .message.info {
-      color: var(--secondary);
-      background: var(--metric);
-      border: 1px solid var(--border);
-    }
-
-    .message.success {
-      color: var(--success);
-      background: var(--success-bg);
-      border: 1px solid #bbf7d0;
-    }
-
-    .message.warning {
-      color: var(--warning);
-      background: var(--warning-bg);
-      border: 1px solid #fde68a;
-    }
-
-    .message.error {
-      color: var(--error);
-      background: var(--error-bg);
-      border: 1px solid #fecaca;
-    }
-
     button {
       background: var(--daikin-blue);
-      color: #ffffff;
+      color: white;
       border: none;
       padding: 0.8rem 1.25rem;
       border-radius: 9px;
@@ -159,18 +114,11 @@
       font-weight: 600;
       width: 100%;
       cursor: pointer;
-      transition:
-        background 0.15s ease,
-        opacity 0.15s ease;
+      margin-top: 0.65rem;
     }
 
     button:hover:not(:disabled) {
       background: var(--daikin-blue-dark);
-    }
-
-    button:focus-visible {
-      outline: 3px solid rgba(0, 119, 200, 0.3);
-      outline-offset: 2px;
     }
 
     button:disabled {
@@ -181,11 +129,28 @@
     button.secondary {
       color: var(--secondary);
       background: #eef2f6;
-      margin-top: 0.65rem;
     }
 
     button.secondary:hover:not(:disabled) {
       background: #e2e8f0;
+    }
+
+    .message {
+      border-radius: 10px;
+      padding: 0.8rem;
+      margin: 1rem 0;
+      font-size: 0.88rem;
+      line-height: 1.4;
+    }
+
+    .message.error {
+      color: var(--error);
+      background: var(--error-bg);
+    }
+
+    .message.warning {
+      color: var(--warning);
+      background: var(--warning-bg);
     }
 
     .last-updated {
@@ -195,50 +160,42 @@
       font-size: 0.8rem;
     }
 
+    .diagnostic {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 1rem;
+      border-radius: 10px;
+      font-size: 0.7rem;
+      line-height: 1.45;
+      max-height: 500px;
+      overflow-y: auto;
+      margin-top: 1rem;
+      text-align: left;
+    }
+
     .hidden {
       display: none !important;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 0.9rem;
-      height: 0.9rem;
-      border: 2px solid rgba(255, 255, 255, 0.45);
-      border-top-color: #ffffff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      vertical-align: -0.1rem;
-      margin-right: 0.4rem;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .spinner {
-        animation: none;
-      }
-
-      button {
-        transition: none;
-      }
     }
   </style>
 </head>
 
 <body>
+
   <main class="card">
+
     <h1>Daikin Altherma Status</h1>
 
     <p class="header-subtitle">
       Live heating and domestic hot-water information
     </p>
 
-    <!-- Login view -->
+
+    <!-- LOGIN -->
+
     <section id="login-view">
+
       <p>
         Connect your Daikin Onecta account to view your
         heat-pump status and temperatures.
@@ -250,64 +207,110 @@
 
       <div
         id="login-message"
-        class="message info hidden"
-        role="status"
-        aria-live="polite"
+        class="message error hidden"
       ></div>
+
     </section>
 
-    <!-- Dashboard view -->
-    <section id="dashboard-view" class="hidden">
-      <div class="metric heating">
-        <div class="label">Heating status</div>
 
-        <div class="value" id="active-mode">
+    <!-- DASHBOARD -->
+
+    <section id="dashboard-view" class="hidden">
+
+      <div class="metric heating">
+
+        <div class="label">
+          Heating status
+        </div>
+
+        <div
+          class="value"
+          id="active-mode"
+        >
           Loading...
         </div>
 
-        <div class="sub" id="mode-detail">
-          Checking the heat-pump status...
+        <div
+          class="sub"
+          id="mode-detail"
+        >
+          Checking heat-pump status...
         </div>
+
       </div>
 
+
       <div class="metric">
+
         <div class="label">
           Leaving water temperature
         </div>
 
-        <div class="value" id="lwt-value">
+        <div
+          class="value"
+          id="lwt-value"
+        >
           -- °C
         </div>
 
         <div class="sub">
           Flow temperature supplied by the heat pump
         </div>
+
       </div>
 
+
       <div class="metric water">
+
         <div class="label">
           Domestic hot-water tank
         </div>
 
-        <div class="value" id="tank-value">
+        <div
+          class="value"
+          id="tank-value"
+        >
           -- °C
         </div>
 
-        <div class="sub" id="tank-detail">
+        <div
+          class="sub"
+          id="tank-detail"
+        >
           Current stored hot-water temperature
         </div>
+
       </div>
+
 
       <div
         id="dashboard-message"
-        class="message info hidden"
-        role="status"
-        aria-live="polite"
+        class="message error hidden"
       ></div>
 
-      <button id="refresh-btn" type="button">
+
+      <button
+        id="refresh-btn"
+        type="button"
+      >
         Refresh data
       </button>
+
+
+      <button
+        id="diagnostic-btn"
+        class="secondary"
+        type="button"
+      >
+        Show diagnostic data
+      </button>
+
+
+      <pre
+        id="diagnostic-output"
+        class="diagnostic hidden"
+      ></pre>
+
 
       <button
         id="logout-btn"
@@ -317,18 +320,28 @@
         Log out
       </button>
 
-      <p class="last-updated" id="last-updated">
+
+      <p
+        class="last-updated"
+        id="last-updated"
+      >
         Not yet updated
       </p>
+
 
       <p class="last-updated">
         Refresh sparingly to remain within Daikin's API limit.
       </p>
+
     </section>
+
   </main>
 
+
   <script>
+
     "use strict";
+
 
     // ==================================================
     // CONFIGURATION
@@ -346,6 +359,7 @@
     const AUTH_URL =
       "https://idp.onecta.daikineurope.com/v1/oidc/authorize";
 
+
     const TOKEN_STORAGE_KEY =
       "daikin_access_token";
 
@@ -355,14 +369,9 @@
     const TOKEN_EXPIRY_STORAGE_KEY =
       "daikin_token_expiry";
 
-    const MINIMUM_REFRESH_INTERVAL_MS =
-      60 * 1000;
-
-    let lastDataRequestTime = 0;
-    let refreshInProgress = false;
 
     // ==================================================
-    // ELEMENTS
+    // PAGE ELEMENTS
     // ==================================================
 
     const loginView =
@@ -376,6 +385,12 @@
 
     const refreshButton =
       document.getElementById("refresh-btn");
+
+    const diagnosticButton =
+      document.getElementById("diagnostic-btn");
+
+    const diagnosticOutput =
+      document.getElementById("diagnostic-output");
 
     const logoutButton =
       document.getElementById("logout-btn");
@@ -404,275 +419,1000 @@
     const lastUpdated =
       document.getElementById("last-updated");
 
+
     // ==================================================
-    // USER INTERACTIONS
+    // BUTTONS
     // ==================================================
 
-    loginButton.addEventListener("click", startLogin);
+    loginButton.addEventListener(
+      "click",
+      startLogin
+    );
 
     refreshButton.addEventListener(
       "click",
-      () => fetchASHPData(false)
+      fetchASHPData
     );
 
-    logoutButton.addEventListener("click", logout);
+    diagnosticButton.addEventListener(
+      "click",
+      showDiagnosticData
+    );
+
+    logoutButton.addEventListener(
+      "click",
+      logout
+    );
+
+
+    // ==================================================
+    // LOGIN
+    // ==================================================
 
     function startLogin() {
-      setLoginMessage(
-        "Redirecting securely to Daikin...",
-        "info"
-      );
 
-      const state = createRandomState();
+      const state =
+        createRandomState();
 
       sessionStorage.setItem(
         "daikin_oauth_state",
         state
       );
 
-      const params = new URLSearchParams({
-        response_type: "code",
-        client_id: CLIENT_ID,
-        redirect_uri: REDIRECT_URI,
-        scope:
-          "openid onecta:basic.integration offline_access",
-        state: state
-      });
+      const params =
+        new URLSearchParams({
+
+          response_type: "code",
+
+          client_id: CLIENT_ID,
+
+          redirect_uri: REDIRECT_URI,
+
+          scope:
+            "openid onecta:basic.integration offline_access",
+
+          state: state
+
+        });
 
       window.location.assign(
         `${AUTH_URL}?${params.toString()}`
       );
+
     }
 
+
     // ==================================================
-    // INITIALISATION AND OAUTH CALLBACK
+    // INITIALISATION
     // ==================================================
 
     async function init() {
+
       const params =
-        new URLSearchParams(window.location.search);
+        new URLSearchParams(
+          window.location.search
+        );
 
-      const code = params.get("code");
-      const returnedState = params.get("state");
-      const oauthError = params.get("error");
-      const oauthDescription =
-        params.get("error_description");
+      const code =
+        params.get("code");
 
-      if (oauthError) {
-        cleanCallbackUrl();
+      const returnedState =
+        params.get("state");
 
-        setLoginMessage(
-          oauthDescription ||
-            `Daikin login failed: ${oauthError}`,
-          "error"
+      const error =
+        params.get("error");
+
+
+      if (error) {
+
+        loginMessage.textContent =
+          `Daikin login error: ${error}`;
+
+        loginMessage.classList.remove(
+          "hidden"
         );
 
         return;
+
       }
 
+
       if (code) {
+
         const expectedState =
-          sessionStorage.getItem("daikin_oauth_state");
+          sessionStorage.getItem(
+            "daikin_oauth_state"
+          );
+
+
+        if (
+          !expectedState ||
+          expectedState !== returnedState
+        ) {
+
+          loginMessage.textContent =
+            "Login security check failed.";
+
+          loginMessage.classList.remove(
+            "hidden"
+          );
+
+          return;
+
+        }
+
 
         sessionStorage.removeItem(
           "daikin_oauth_state"
         );
 
-        if (
-          !expectedState ||
-          !returnedState ||
-          expectedState !== returnedState
-        ) {
-          cleanCallbackUrl();
 
-          setLoginMessage(
-            "The login security check failed. Please start the login again.",
-            "error"
-          );
-
-          return;
-        }
-
-        cleanCallbackUrl();
-        await exchangeCodeForToken(code);
-        return;
-      }
-
-      if (getAccessToken() || getRefreshToken()) {
-        showDashboard();
-
-        try {
-          await ensureValidAccessToken();
-          await fetchASHPData(true);
-        } catch (error) {
-          handleAuthenticationFailure(error);
-        }
-      }
-    }
-
-    function cleanCallbackUrl() {
-      window.history.replaceState(
-        {},
-        document.title,
-        REDIRECT_URI
-      );
-    }
-
-    // ==================================================
-    // TOKEN MANAGEMENT
-    // ==================================================
-
-    async function exchangeCodeForToken(code) {
-      setLoginLoading(true);
-
-      try {
-        const response = await fetch(
-          `${WORKER_URL}/token`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              code: code,
-              redirect_uri: REDIRECT_URI
-            })
-          }
+        window.history.replaceState(
+          {},
+          document.title,
+          REDIRECT_URI
         );
 
-        const data = await readJsonResponse(response);
 
-        if (!response.ok || !data.access_token) {
+        await exchangeCodeForToken(
+          code
+        );
+
+        return;
+
+      }
+
+
+      if (
+        getAccessToken() ||
+        getRefreshToken()
+      ) {
+
+        showDashboard();
+
+        await fetchASHPData();
+
+      }
+
+    }
+
+
+    // ==================================================
+    // TOKEN EXCHANGE
+    // ==================================================
+
+    async function exchangeCodeForToken(
+      code
+    ) {
+
+      try {
+
+        const response =
+          await fetch(
+            `${WORKER_URL}/token`,
+            {
+
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+
+              body:
+                JSON.stringify({
+                  code: code,
+                  redirect_uri:
+                    REDIRECT_URI
+                })
+
+            }
+          );
+
+
+        const data =
+          await readJsonResponse(
+            response
+          );
+
+
+        if (
+          !response.ok ||
+          !data.access_token
+        ) {
+
           throw new Error(
             getApiErrorMessage(
               data,
-              "Daikin did not issue an access token."
+              "Token exchange failed."
             )
           );
+
         }
 
-        storeTokens(data);
-        showDashboard();
-        await fetchASHPData(true);
-      } catch (error) {
-        clearTokens();
 
-        setLoginMessage(
-          `Login failed: ${error.message}`,
-          "error"
+        storeTokens(data);
+
+        showDashboard();
+
+        await fetchASHPData();
+
+
+      } catch (error) {
+
+        loginMessage.textContent =
+          `Login failed: ${error.message}`;
+
+        loginMessage.classList.remove(
+          "hidden"
         );
-      } finally {
-        setLoginLoading(false);
+
       }
+
     }
+
+
+    // ==================================================
+    // REFRESH TOKEN
+    // ==================================================
 
     async function ensureValidAccessToken() {
-      const token = getAccessToken();
-      const expiry = Number(
-        localStorage.getItem(
-          TOKEN_EXPIRY_STORAGE_KEY
-        ) || 0
-      );
 
-      const expiresSoon =
-        !expiry || Date.now() >= expiry - 60 * 1000;
+      const token =
+        getAccessToken();
 
-      if (token && !expiresSoon) {
+      const expiry =
+        Number(
+          localStorage.getItem(
+            TOKEN_EXPIRY_STORAGE_KEY
+          ) || 0
+        );
+
+
+      if (
+        token &&
+        expiry &&
+        Date.now() <
+          expiry - 60000
+      ) {
+
         return token;
+
       }
 
-      return refreshAccessToken();
+
+      return await
+        refreshAccessToken();
+
     }
 
-    async function refreshAccessToken() {
-      if (refreshInProgress) {
-        throw new Error(
-          "A token refresh is already in progress."
-        );
-      }
 
-      const refreshToken = getRefreshToken();
+    async function refreshAccessToken() {
+
+      const refreshToken =
+        getRefreshToken();
+
 
       if (!refreshToken) {
+
         throw new Error(
-          "Your login has expired. Please log in again."
+          "Login expired. Please log in again."
         );
+
       }
 
-      refreshInProgress = true;
 
-      try {
-        const response = await fetch(
+      const response =
+        await fetch(
           `${WORKER_URL}/refresh`,
           {
+
             method: "POST",
+
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type":
+                "application/json"
             },
-            body: JSON.stringify({
-              refresh_token: refreshToken
-            })
+
+            body:
+              JSON.stringify({
+                refresh_token:
+                  refreshToken
+              })
+
           }
         );
 
-        const data = await readJsonResponse(response);
 
-        if (!response.ok || !data.access_token) {
-          throw new Error(
-            getApiErrorMessage(
-              data,
-              "Daikin could not refresh the login."
-            )
-          );
-        }
+      const data =
+        await readJsonResponse(
+          response
+        );
 
-        // Daikin may rotate the refresh token. storeTokens
-        // retains the old one only if no new one is returned.
-        storeTokens(data);
 
-        return data.access_token;
-      } finally {
-        refreshInProgress = false;
+      if (
+        !response.ok ||
+        !data.access_token
+      ) {
+
+        throw new Error(
+          getApiErrorMessage(
+            data,
+            "Unable to refresh Daikin login."
+          )
+        );
+
       }
+
+
+      storeTokens(data);
+
+      return data.access_token;
+
     }
 
+
     function storeTokens(data) {
+
       localStorage.setItem(
         TOKEN_STORAGE_KEY,
         data.access_token
       );
 
+
       if (data.refresh_token) {
+
         localStorage.setItem(
           REFRESH_TOKEN_STORAGE_KEY,
           data.refresh_token
         );
+
       }
 
-      const lifetimeSeconds =
-        Number(data.expires_in) || 3600;
+
+      const lifetime =
+        Number(
+          data.expires_in
+        ) || 3600;
+
 
       localStorage.setItem(
         TOKEN_EXPIRY_STORAGE_KEY,
         String(
-          Date.now() + lifetimeSeconds * 1000
+          Date.now() +
+          lifetime * 1000
         )
       );
+
     }
 
+
     function getAccessToken() {
+
       return localStorage.getItem(
         TOKEN_STORAGE_KEY
       );
+
     }
 
+
     function getRefreshToken() {
+
       return localStorage.getItem(
         REFRESH_TOKEN_STORAGE_KEY
       );
+
     }
 
-    function clearTokens() {
+
+    // ==================================================
+    // FETCH DAIKIN DATA
+    // ==================================================
+
+    async function fetchASHPData() {
+
+      refreshButton.disabled = true;
+
+      refreshButton.textContent =
+        "Updating...";
+
+
+      try {
+
+        let token =
+          await ensureValidAccessToken();
+
+
+        let response =
+          await requestDevices(
+            token
+          );
+
+
+        if (
+          response.status === 401
+        ) {
+
+          token =
+            await refreshAccessToken();
+
+          response =
+            await requestDevices(
+              token
+            );
+
+        }
+
+
+        const data =
+          await readJsonResponse(
+            response
+          );
+
+
+        if (!response.ok) {
+
+          throw new Error(
+            getApiErrorMessage(
+              data,
+              `HTTP ${response.status}`
+            )
+          );
+
+        }
+
+
+        const parsed =
+          parseAlthermaPayload(
+            data
+          );
+
+
+        updateDashboard(
+          parsed
+        );
+
+
+        lastUpdated.textContent =
+          "Last updated: " +
+          new Date()
+            .toLocaleString();
+
+
+        dashboardMessage
+          .classList.add(
+            "hidden"
+          );
+
+
+      } catch (error) {
+
+        dashboardMessage.textContent =
+          "Unable to retrieve Daikin data: " +
+          error.message;
+
+        dashboardMessage
+          .classList.remove(
+            "hidden"
+          );
+
+      } finally {
+
+        refreshButton.disabled =
+          false;
+
+        refreshButton.textContent =
+          "Refresh data";
+
+      }
+
+    }
+
+
+    function requestDevices(token) {
+
+      return fetch(
+        `${WORKER_URL}/devices`,
+        {
+
+          method: "GET",
+
+          headers: {
+
+            Authorization:
+              `Bearer ${token}`,
+
+            Accept:
+              "application/json"
+
+          }
+
+        }
+      );
+
+    }
+
+
+    // ==================================================
+    // DIAGNOSTIC DATA
+    // ==================================================
+
+    async function showDiagnosticData() {
+
+      diagnosticButton.disabled =
+        true;
+
+      diagnosticButton.textContent =
+        "Loading diagnostic data...";
+
+
+      try {
+
+        let token =
+          await ensureValidAccessToken();
+
+
+        let response =
+          await requestDevices(
+            token
+          );
+
+
+        if (
+          response.status === 401
+        ) {
+
+          token =
+            await refreshAccessToken();
+
+          response =
+            await requestDevices(
+              token
+            );
+
+        }
+
+
+        const data =
+          await readJsonResponse(
+            response
+          );
+
+
+        if (!response.ok) {
+
+          throw new Error(
+            getApiErrorMessage(
+              data,
+              `Daikin returned HTTP ${response.status}.`
+            )
+          );
+
+        }
+
+
+        diagnosticOutput.textContent =
+          JSON.stringify(
+            data,
+            null,
+            2
+          );
+
+
+        diagnosticOutput
+          .classList.remove(
+            "hidden"
+          );
+
+
+      } catch (error) {
+
+        diagnosticOutput.textContent =
+          "Error: " +
+          error.message;
+
+
+        diagnosticOutput
+          .classList.remove(
+            "hidden"
+          );
+
+      } finally {
+
+        diagnosticButton.disabled =
+          false;
+
+        diagnosticButton.textContent =
+          "Show diagnostic data";
+
+      }
+
+    }
+
+
+    // ==================================================
+    // CURRENT PARSER
+    // We expect to replace this after examining the
+    // diagnostic output from your Altherma.
+    // ==================================================
+
+    function parseAlthermaPayload(
+      payload
+    ) {
+
+      const devices =
+        Array.isArray(payload)
+          ? payload
+          : Array.isArray(
+              payload?.data
+            )
+            ? payload.data
+            : [];
+
+
+      if (
+        devices.length === 0
+      ) {
+
+        throw new Error(
+          "No Daikin devices returned."
+        );
+
+      }
+
+
+      const points =
+        devices.flatMap(
+          device =>
+            Array.isArray(
+              device?.managementPoints
+            )
+              ? device.managementPoints
+              : []
+        );
+
+
+      const mainZone =
+        points.find(
+          point =>
+            point
+              ?.managementPointType ===
+            "climateControlMainZone"
+        );
+
+
+      const tank =
+        points.find(
+          point =>
+            point
+              ?.managementPointType ===
+            "domesticHotWaterTank"
+        );
+
+
+      const spaceHeating =
+        readValue(
+          mainZone?.onOffMode
+        ) === "on";
+
+
+      const dhw =
+        readValue(
+          tank?.onOffMode
+        ) === "on";
+
+
+      const powerful =
+        readValue(
+          tank?.powerfulMode
+        ) === "on";
+
+
+      const lwt =
+        firstNumericValue([
+
+          readPath(
+            mainZone,
+            "sensoryData.value.leavingWaterTemperature"
+          ),
+
+          readPath(
+            mainZone,
+            "sensoryData.value.leavingWaterTemperature.value"
+          )
+
+        ]);
+
+
+      const tankTemp =
+        firstNumericValue([
+
+          readPath(
+            tank,
+            "sensoryData.value.tankTemperature"
+          ),
+
+          readPath(
+            tank,
+            "sensoryData.value.tankTemperature.value"
+          )
+
+        ]);
+
+
+      return {
+
+        spaceHeating,
+        dhw,
+        powerful,
+        lwt,
+        tankTemp
+
+      };
+
+    }
+
+
+    function updateDashboard(data) {
+
+      lwtValue.textContent =
+        formatTemperature(
+          data.lwt
+        );
+
+
+      tankValue.textContent =
+        formatTemperature(
+          data.tankTemp
+        );
+
+
+      if (data.powerful) {
+
+        activeMode.textContent =
+          "Hot water boost";
+
+        modeDetail.textContent =
+          "DHW powerful mode is active.";
+
+      }
+
+      else if (
+        data.dhw &&
+        !data.spaceHeating
+      ) {
+
+        activeMode.textContent =
+          "Hot water enabled";
+
+        modeDetail.textContent =
+          "Domestic hot water is enabled and space heating is off.";
+
+      }
+
+      else if (
+        data.spaceHeating
+      ) {
+
+        activeMode.textContent =
+          "Space heating enabled";
+
+        modeDetail.textContent =
+          data.dhw
+            ? "Space heating and hot water are enabled."
+            : "Space heating is enabled.";
+
+      }
+
+      else {
+
+        activeMode.textContent =
+          "Standby / off";
+
+        modeDetail.textContent =
+          "No heating demand detected.";
+
+      }
+
+
+      tankDetail.textContent =
+        data.dhw
+          ? "Domestic hot-water operation is enabled."
+          : "Domestic hot-water operation is switched off.";
+
+    }
+
+
+    // ==================================================
+    // HELPERS
+    // ==================================================
+
+    function readValue(item) {
+
+      if (
+        item &&
+        typeof item === "object" &&
+        "value" in item
+      ) {
+
+        return item.value;
+
+      }
+
+      return item;
+
+    }
+
+
+    function readPath(
+      object,
+      path
+    ) {
+
+      return path
+        .split(".")
+        .reduce(
+          (current, key) =>
+            current == null
+              ? undefined
+              : current[key],
+          object
+        );
+
+    }
+
+
+    function firstNumericValue(
+      values
+    ) {
+
+      for (
+        const candidate
+        of values
+      ) {
+
+        const value =
+          readValue(
+            candidate
+          );
+
+        const number =
+          Number(value);
+
+
+        if (
+          value !== null &&
+          value !== "" &&
+          Number.isFinite(
+            number
+          )
+        ) {
+
+          return number;
+
+        }
+
+      }
+
+
+      return null;
+
+    }
+
+
+    function formatTemperature(
+      value
+    ) {
+
+      if (
+        !Number.isFinite(
+          value
+        )
+      ) {
+
+        return "-- °C";
+
+      }
+
+
+      return (
+        value.toFixed(1) +
+        " °C"
+      );
+
+    }
+
+
+    async function readJsonResponse(
+      response
+    ) {
+
+      const text =
+        await response.text();
+
+
+      if (!text) {
+
+        return {};
+
+      }
+
+
+      try {
+
+        return JSON.parse(
+          text
+        );
+
+      } catch {
+
+        return {
+          error:
+            "Unexpected server response."
+        };
+
+      }
+
+    }
+
+
+    function getApiErrorMessage(
+      data,
+      fallback
+    ) {
+
+      return (
+        data?.error_description ||
+        data?.message ||
+        (
+          typeof data?.error ===
+          "string"
+            ? data.error
+            : null
+        ) ||
+        fallback
+      );
+
+    }
+
+
+    function createRandomState() {
+
+      const values =
+        new Uint8Array(24);
+
+
+      crypto.getRandomValues(
+        values
+      );
+
+
+      return Array.from(
+        values,
+        byte =>
+          byte
+            .toString(16)
+            .padStart(2, "0")
+      ).join("");
+
+    }
+
+
+    function showDashboard() {
+
+      loginView.classList.add(
+        "hidden"
+      );
+
+      dashboardView.classList.remove(
+        "hidden"
+      );
+
+    }
+
+
+    function logout() {
+
       localStorage.removeItem(
         TOKEN_STORAGE_KEY
       );
@@ -684,438 +1424,22 @@
       localStorage.removeItem(
         TOKEN_EXPIRY_STORAGE_KEY
       );
-    }
-
-    // ==================================================
-    // DAIKIN DEVICE DATA
-    // ==================================================
-
-    async function fetchASHPData(initialLoad) {
-      const now = Date.now();
-      const elapsed = now - lastDataRequestTime;
-
-      if (
-        !initialLoad &&
-        lastDataRequestTime &&
-        elapsed < MINIMUM_REFRESH_INTERVAL_MS
-      ) {
-        const waitSeconds = Math.ceil(
-          (
-            MINIMUM_REFRESH_INTERVAL_MS - elapsed
-          ) / 1000
-        );
-
-        setDashboardMessage(
-          `Please wait ${waitSeconds} seconds before refreshing again.`,
-          "warning"
-        );
-
-        return;
-      }
-
-      setRefreshLoading(true);
-      hideMessage(dashboardMessage);
-
-      try {
-        let token =
-          await ensureValidAccessToken();
-
-        let response =
-          await requestDevices(token);
-
-        // The access token may have been invalidated before
-        // its reported expiry. Refresh once and retry.
-        if (response.status === 401) {
-          token = await refreshAccessToken();
-          response = await requestDevices(token);
-        }
-
-        const data =
-          await readJsonResponse(response);
-
-        if (!response.ok) {
-          throw new Error(
-            getApiErrorMessage(
-              data,
-              `Daikin returned HTTP ${response.status}.`
-            )
-          );
-        }
-
-        lastDataRequestTime = Date.now();
-
-        const parsed =
-          parseAlthermaPayload(data);
-
-        updateDashboard(parsed);
-
-        lastUpdated.textContent =
-          `Last updated: ${new Date().toLocaleString()}`;
-      } catch (error) {
-        setDashboardMessage(
-          `Unable to retrieve Daikin data: ${error.message}`,
-          "error"
-        );
-
-        activeMode.textContent =
-          "Data unavailable";
-
-        modeDetail.textContent =
-          "The last data request did not complete.";
-      } finally {
-        setRefreshLoading(false);
-      }
-    }
-
-    function requestDevices(token) {
-      return fetch(`${WORKER_URL}/devices`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json"
-        }
-      });
-    }
-
-    function parseAlthermaPayload(payload) {
-      const devices =
-        Array.isArray(payload)
-          ? payload
-          : Array.isArray(payload?.data)
-            ? payload.data
-            : [];
-
-      if (devices.length === 0) {
-        throw new Error(
-          "No Daikin gateway devices were returned."
-        );
-      }
-
-      const managementPoints =
-        devices.flatMap(
-          device =>
-            Array.isArray(device?.managementPoints)
-              ? device.managementPoints
-              : []
-        );
-
-      const mainZone =
-        managementPoints.find(
-          point =>
-            point?.managementPointType ===
-            "climateControlMainZone"
-        );
-
-      const hotWaterTank =
-        managementPoints.find(
-          point =>
-            point?.managementPointType ===
-            "domesticHotWaterTank"
-        );
-
-      const spaceHeatingEnabled =
-        readValue(mainZone?.onOffMode) === "on";
-
-      const dhwEnabled =
-        readValue(hotWaterTank?.onOffMode) === "on";
-
-      const powerfulMode =
-        readValue(
-          hotWaterTank?.powerfulMode
-        ) === "on";
-
-      const lwt =
-        firstNumericValue([
-          readPath(
-            mainZone,
-            "sensoryData.value.leavingWaterTemperature"
-          ),
-          readPath(
-            mainZone,
-            "sensoryData.value.leavingWaterTemperature.value"
-          ),
-          readPath(
-            mainZone,
-            "sensoryData.leavingWaterTemperature"
-          )
-        ]);
-
-      const tankTemperature =
-        firstNumericValue([
-          readPath(
-            hotWaterTank,
-            "sensoryData.value.tankTemperature"
-          ),
-          readPath(
-            hotWaterTank,
-            "sensoryData.value.tankTemperature.value"
-          ),
-          readPath(
-            hotWaterTank,
-            "sensoryData.tankTemperature"
-          )
-        ]);
-
-      return {
-        hasMainZone: Boolean(mainZone),
-        hasTank: Boolean(hotWaterTank),
-        spaceHeatingEnabled,
-        dhwEnabled,
-        powerfulMode,
-        lwt,
-        tankTemperature
-      };
-    }
-
-    function updateDashboard(data) {
-      lwtValue.textContent =
-        formatTemperature(data.lwt);
-
-      tankValue.textContent =
-        formatTemperature(
-          data.tankTemperature
-        );
-
-      if (!data.hasTank) {
-        tankDetail.textContent =
-          "No domestic hot-water tank management point was returned.";
-      } else if (data.powerfulMode) {
-        tankDetail.textContent =
-          "Powerful hot-water reheat is enabled.";
-      } else if (data.dhwEnabled) {
-        tankDetail.textContent =
-          "Domestic hot-water operation is enabled.";
-      } else {
-        tankDetail.textContent =
-          "Domestic hot-water operation is switched off.";
-      }
-
-      if (data.powerfulMode) {
-        activeMode.textContent =
-          "Hot water boost";
-
-        modeDetail.textContent =
-          "Powerful domestic hot-water reheat is enabled.";
-      } else if (
-        data.dhwEnabled &&
-        !data.spaceHeatingEnabled
-      ) {
-        activeMode.textContent =
-          "Hot water enabled";
-
-        modeDetail.textContent =
-          "Domestic hot water is enabled and space heating is off.";
-      } else if (
-        data.spaceHeatingEnabled &&
-        data.dhwEnabled
-      ) {
-        activeMode.textContent =
-          "Heating and hot water enabled";
-
-        modeDetail.textContent =
-          "Both services are enabled. Daikin may prioritise the hot-water tank when reheating is required.";
-      } else if (
-        data.spaceHeatingEnabled
-      ) {
-        activeMode.textContent =
-          "Space heating enabled";
-
-        modeDetail.textContent =
-          "Space heating is enabled and domestic hot water is off.";
-      } else if (
-        !data.hasMainZone &&
-        !data.hasTank
-      ) {
-        activeMode.textContent =
-          "Status unavailable";
-
-        modeDetail.textContent =
-          "The expected Altherma management points were not found.";
-      } else {
-        activeMode.textContent =
-          "Standby / off";
-
-        modeDetail.textContent =
-          "Space heating and domestic hot water are both switched off.";
-      }
-    }
-
-    // ==================================================
-    // HELPERS
-    // ==================================================
-
-    function readValue(item) {
-      if (
-        item &&
-        typeof item === "object" &&
-        "value" in item
-      ) {
-        return item.value;
-      }
-
-      return item;
-    }
-
-    function readPath(object, path) {
-      return path
-        .split(".")
-        .reduce(
-          (current, key) =>
-            current == null
-              ? undefined
-              : current[key],
-          object
-        );
-    }
-
-    function firstNumericValue(values) {
-      for (const candidate of values) {
-        const value = readValue(candidate);
-        const number = Number(value);
-
-        if (
-          value !== null &&
-          value !== "" &&
-          Number.isFinite(number)
-        ) {
-          return number;
-        }
-      }
-
-      return null;
-    }
-
-    function formatTemperature(value) {
-      if (!Number.isFinite(value)) {
-        return "-- °C";
-      }
-
-      return `${value.toFixed(1)} °C`;
-    }
-
-    async function readJsonResponse(response) {
-      const text = await response.text();
-
-      if (!text) {
-        return {};
-      }
-
-      try {
-        return JSON.parse(text);
-      } catch {
-        return {
-          error:
-            `The server returned an unexpected response: ${text.slice(0, 160)}`
-        };
-      }
-    }
-
-    function getApiErrorMessage(
-      data,
-      fallback
-    ) {
-      return (
-        data?.error_description ||
-        data?.message ||
-        (
-          typeof data?.error === "string"
-            ? data.error
-            : null
-        ) ||
-        fallback
-      );
-    }
-
-    function createRandomState() {
-      const values =
-        new Uint8Array(24);
-
-      crypto.getRandomValues(values);
-
-      return Array.from(
-        values,
-        byte =>
-          byte
-            .toString(16)
-            .padStart(2, "0")
-      ).join("");
-    }
-
-    function showDashboard() {
-      loginView.classList.add("hidden");
-      dashboardView.classList.remove("hidden");
-    }
-
-    function showLogin() {
-      dashboardView.classList.add("hidden");
-      loginView.classList.remove("hidden");
-    }
-
-    function logout() {
-      clearTokens();
 
       sessionStorage.removeItem(
         "daikin_oauth_state"
       );
 
-      showLogin();
+      location.reload();
 
-      setLoginMessage(
-        "You have been logged out on this device.",
-        "success"
-      );
     }
 
-    function handleAuthenticationFailure(error) {
-      clearTokens();
-      showLogin();
 
-      setLoginMessage(
-        error.message ||
-          "Your login has expired. Please log in again.",
-        "error"
-      );
-    }
-
-    function setLoginLoading(loading) {
-      loginButton.disabled = loading;
-
-      loginButton.innerHTML = loading
-        ? '<span class="spinner"></span>Connecting...'
-        : "Log in with Daikin";
-    }
-
-    function setRefreshLoading(loading) {
-      refreshButton.disabled = loading;
-
-      refreshButton.innerHTML = loading
-        ? '<span class="spinner"></span>Updating...'
-        : "Refresh data";
-    }
-
-    function setLoginMessage(text, type) {
-      setMessage(loginMessage, text, type);
-    }
-
-    function setDashboardMessage(text, type) {
-      setMessage(
-        dashboardMessage,
-        text,
-        type
-      );
-    }
-
-    function setMessage(element, text, type) {
-      element.textContent = text;
-      element.className =
-        `message ${type}`;
-    }
-
-    function hideMessage(element) {
-      element.classList.add("hidden");
-    }
+    // Start the application
 
     init();
+
   </script>
+
 </body>
+
 </html>
