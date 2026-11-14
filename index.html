@@ -1036,191 +1036,227 @@
     // diagnostic output from your Altherma.
     // ==================================================
 
-    function parseAlthermaPayload(
-      payload
+function parseAlthermaPayload(payload) {
+  const devices =
+    Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+
+  if (devices.length === 0) {
+    throw new Error(
+      "No Daikin devices were returned."
+    );
+  }
+
+  const points = devices.flatMap(
+    device =>
+      Array.isArray(device?.managementPoints)
+        ? device.managementPoints
+        : []
+  );
+
+  // Your Altherma identifies this by embeddedId,
+  // managementPointType and managementPointSubType.
+  const mainZone = points.find(
+    point =>
+      point?.embeddedId === "climateControlMainZone" ||
+      (
+        point?.managementPointType === "climateControl" &&
+        point?.managementPointSubType === "mainZone"
+      )
+  );
+
+  const tank = points.find(
+    point =>
+      point?.embeddedId === "domesticHotWaterTank" ||
+      point?.managementPointType === "domesticHotWaterTank"
+  );
+
+  if (!mainZone) {
+    throw new Error(
+      "The Altherma main heating zone was not found."
+    );
+  }
+
+  const spaceHeatingEnabled =
+    readValue(mainZone?.onOffMode) === "on";
+
+  const operationMode =
+    readValue(mainZone?.operationMode);
+
+  const dhwEnabled =
+    readValue(tank?.onOffMode) === "on";
+
+  const dhwBoostActive =
+    readValue(tank?.isPowerfulModeActive) === true ||
+    readValue(tank?.powerfulMode) === "on";
+
+  const leavingWaterTemperature =
+    firstNumericValue([
+      readPath(
+        mainZone,
+        "sensoryData.value.leavingWaterTemperature.value"
+      ),
+      readPath(
+        mainZone,
+        "sensoryData.value.leavingWaterTemperature"
+      )
+    ]);
+
+  const outdoorTemperature =
+    firstNumericValue([
+      readPath(
+        mainZone,
+        "sensoryData.value.outdoorTemperature.value"
+      )
+    ]);
+
+  const roomTemperature =
+    firstNumericValue([
+      readPath(
+        mainZone,
+        "sensoryData.value.roomTemperature.value"
+      )
+    ]);
+
+  const roomSetpoint =
+    firstNumericValue([
+      readPath(
+        mainZone,
+        "temperatureControl.value.operationModes.heating.setpoints.roomTemperature.value"
+      )
+    ]);
+
+  const tankTemperature =
+    firstNumericValue([
+      readPath(
+        tank,
+        "sensoryData.value.tankTemperature.value"
+      ),
+      readPath(
+        tank,
+        "sensoryData.value.tankTemperature"
+      )
+    ]);
+
+  const tankSetpoint =
+    firstNumericValue([
+      readPath(
+        tank,
+        "temperatureControl.value.operationModes.heating.setpoints.domesticHotWaterTemperature.value"
+      )
+    ]);
+
+  /*
+   * On this Altherma payload, the API exposes whether services
+   * are enabled but does not expose an unambiguous compressor
+   * destination/status field.
+   *
+   * A practical indication of space-heating demand is therefore:
+   * - main heating zone is enabled;
+   * - operation mode is heating; and
+   * - measured room temperature is below the Madoka setpoint.
+   */
+  const roomCallingForHeat =
+    Number.isFinite(roomTemperature) &&
+    Number.isFinite(roomSetpoint) &&
+    roomTemperature < roomSetpoint;
+
+  const spaceHeatingDemand =
+    spaceHeatingEnabled &&
+    operationMode === "heating" &&
+    roomCallingForHeat;
+
+  return {
+    spaceHeatingEnabled,
+    spaceHeatingDemand,
+    operationMode,
+    dhwEnabled,
+    dhwBoostActive,
+    leavingWaterTemperature,
+    outdoorTemperature,
+    roomTemperature,
+    roomSetpoint,
+    tankTemperature,
+    tankSetpoint
+  };
+}
+
+function updateDashboard(data) {
+  lwtValue.textContent =
+    formatTemperature(
+      data.leavingWaterTemperature
+    );
+
+  tankValue.textContent =
+    formatTemperature(
+      data.tankTemperature
+    );
+
+  if (data.dhwBoostActive) {
+    activeMode.textContent =
+      "Hot-water boost active";
+
+    modeDetail.textContent =
+      "Daikin powerful hot-water mode is active.";
+  }
+
+  else if (data.spaceHeatingDemand) {
+    activeMode.textContent =
+      "Space heating active";
+
+    modeDetail.textContent =
+      `Room ${formatTemperature(data.roomTemperature)} ` +
+      `• Target ${formatTemperature(data.roomSetpoint)} ` +
+      `• Outside ${formatTemperature(data.outdoorTemperature)}`;
+  }
+
+  else if (data.spaceHeatingEnabled) {
+    activeMode.textContent =
+      "Space heating enabled";
+
+    if (
+      Number.isFinite(data.roomTemperature) &&
+      Number.isFinite(data.roomSetpoint)
     ) {
-
-      const devices =
-        Array.isArray(payload)
-          ? payload
-          : Array.isArray(
-              payload?.data
-            )
-            ? payload.data
-            : [];
-
-
-      if (
-        devices.length === 0
-      ) {
-
-        throw new Error(
-          "No Daikin devices returned."
-        );
-
-      }
-
-
-      const points =
-        devices.flatMap(
-          device =>
-            Array.isArray(
-              device?.managementPoints
-            )
-              ? device.managementPoints
-              : []
-        );
-
-
-      const mainZone =
-        points.find(
-          point =>
-            point
-              ?.managementPointType ===
-            "climateControlMainZone"
-        );
-
-
-      const tank =
-        points.find(
-          point =>
-            point
-              ?.managementPointType ===
-            "domesticHotWaterTank"
-        );
-
-
-      const spaceHeating =
-        readValue(
-          mainZone?.onOffMode
-        ) === "on";
-
-
-      const dhw =
-        readValue(
-          tank?.onOffMode
-        ) === "on";
-
-
-      const powerful =
-        readValue(
-          tank?.powerfulMode
-        ) === "on";
-
-
-      const lwt =
-        firstNumericValue([
-
-          readPath(
-            mainZone,
-            "sensoryData.value.leavingWaterTemperature"
-          ),
-
-          readPath(
-            mainZone,
-            "sensoryData.value.leavingWaterTemperature.value"
-          )
-
-        ]);
-
-
-      const tankTemp =
-        firstNumericValue([
-
-          readPath(
-            tank,
-            "sensoryData.value.tankTemperature"
-          ),
-
-          readPath(
-            tank,
-            "sensoryData.value.tankTemperature.value"
-          )
-
-        ]);
-
-
-      return {
-
-        spaceHeating,
-        dhw,
-        powerful,
-        lwt,
-        tankTemp
-
-      };
-
+      modeDetail.textContent =
+        `Room ${formatTemperature(data.roomTemperature)} ` +
+        `• Target ${formatTemperature(data.roomSetpoint)} ` +
+        `• No room demand detected`;
+    } else {
+      modeDetail.textContent =
+        "The heating zone is enabled, but active demand cannot be confirmed.";
     }
+  }
 
+  else {
+    activeMode.textContent =
+      "Space heating off";
 
-    function updateDashboard(data) {
+    modeDetail.textContent =
+      "The main space-heating zone is switched off.";
+  }
 
-      lwtValue.textContent =
-        formatTemperature(
-          data.lwt
-        );
+  if (data.dhwBoostActive) {
+    tankDetail.textContent =
+      `Hot-water boost active • Target ` +
+      `${formatTemperature(data.tankSetpoint)}`;
+  }
 
+  else if (data.dhwEnabled) {
+    tankDetail.textContent =
+      `DHW enabled • Target ` +
+      `${formatTemperature(data.tankSetpoint)}`;
+  }
 
-      tankValue.textContent =
-        formatTemperature(
-          data.tankTemp
-        );
+  else {
+    tankDetail.textContent =
+      "Domestic hot water is switched off.";
+  }
+}
 
-
-      if (data.powerful) {
-
-        activeMode.textContent =
-          "Hot water boost";
-
-        modeDetail.textContent =
-          "DHW powerful mode is active.";
-
-      }
-
-      else if (
-        data.dhw &&
-        !data.spaceHeating
-      ) {
-
-        activeMode.textContent =
-          "Hot water enabled";
-
-        modeDetail.textContent =
-          "Domestic hot water is enabled and space heating is off.";
-
-      }
-
-      else if (
-        data.spaceHeating
-      ) {
-
-        activeMode.textContent =
-          "Space heating enabled";
-
-        modeDetail.textContent =
-          data.dhw
-            ? "Space heating and hot water are enabled."
-            : "Space heating is enabled.";
-
-      }
-
-      else {
-
-        activeMode.textContent =
-          "Standby / off";
-
-        modeDetail.textContent =
-          "No heating demand detected.";
-
-      }
-
-
-      tankDetail.textContent =
-        data.dhw
-          ? "Domestic hot-water operation is enabled."
-          : "Domestic hot-water operation is switched off.";
-
-    }
 
 
     // ==================================================
