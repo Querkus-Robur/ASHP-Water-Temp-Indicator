@@ -1,34 +1,3515 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0077c8"><title>Daikin Altherma Monitor</title><style>
-:root{--b:#0077c8;--bd:#005fa3;--bg:#f4f6f8;--p:#f8fafc;--t:#1a202c;--m:#64748b;--line:#e2e8f0;--g:#15803d;--a:#a16207;--r:#b91c1c}*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--t);display:flex;justify-content:center;min-height:100vh;padding:2rem 1rem;margin:0}.card{background:#fff;border-radius:16px;box-shadow:0 4px 16px #0002;max-width:500px;width:100%;padding:1.5rem;align-self:flex-start}h1{color:var(--b);font-size:1.35rem;margin:0}.subtitle,.sub,.foot{color:var(--m);font-size:.84rem;line-height:1.45}.subtitle{margin:.4rem 0 1.5rem}.metric{background:var(--p);border-left:4px solid var(--b);border-radius:12px;padding:1rem;margin-bottom:1rem}.heat{border-color:#ef4444}.water{border-color:#f59e0b}.label{color:var(--m);font-size:.76rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}.value{font-size:1.5rem;font-weight:750;margin-top:.3rem}.grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-top:.8rem}.item{background:#fff;border:1px solid var(--line);border-radius:9px;padding:.7rem}.item span{color:var(--m);display:block;font-size:.68rem;font-weight:700;text-transform:uppercase}.item b{display:block;font-size:.93rem;margin-top:.2rem}.evidence{color:#475569;font-size:.83rem;line-height:1.45;padding-left:1.2rem}.message{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;color:#1e40af;font-size:.84rem;line-height:1.45;margin:1rem 0;padding:.8rem}.error{background:#fef2f2;border-color:#fecaca;color:var(--r)}.warning{background:#fefce8;border-color:#fde68a;color:var(--a)}button{background:var(--b);border:0;border-radius:9px;color:#fff;cursor:pointer;font-size:1rem;font-weight:650;margin-top:.65rem;padding:.8rem;width:100%}button:hover{background:var(--bd)}button:disabled{opacity:.6}button.secondary{background:#eef2f6;color:#475569}.chart{background:#fff;border:1px solid var(--line);border-radius:10px;margin-top:.7rem;padding:.4rem}.chart canvas{display:block;width:100%;height:280px}.legend{display:flex;flex-wrap:wrap;gap:.8rem;color:var(--m);font-size:.71rem;margin-top:.5rem}.key{display:inline-flex;align-items:center;gap:.3rem}.sw{display:inline-block;width:14px;height:7px;border-radius:2px}.diag{background:#0f172a;border-radius:10px;color:#e2e8f0;font:11px/1.45 monospace;max-height:500px;overflow:auto;padding:1rem;white-space:pre-wrap}.foot{text-align:center;margin-top:1rem}.hidden{display:none!important}.high{color:var(--g)}.medium{color:var(--a)}@media(max-width:360px){.grid{grid-template-columns:1fr}.card{padding:1rem}}
-</style></head><body><main class="card"><h1>Daikin Altherma Status</h1><p class="subtitle">Read-only demand, schedule and water-temperature monitor</p>
-<section id="login"><p>Connect your Daikin Onecta account to view the latest data.</p><button id="loginBtn">Log in with Daikin</button><div id="loginErr" class="message error hidden"></div></section>
-<section id="dash" class="hidden"><div class="metric"><div class="label">Inferred ASHP workload</div><div class="value" id="workload">Loading...</div><div class="sub" id="workDetail"></div><div class="grid"><div class="item"><span>Confidence</span><b id="confidence">--</b></div><div class="item"><span>Flow trend</span><b id="trend">--</b></div></div><ul class="evidence" id="evidence"></ul></div>
-<div class="metric"><div class="label">24-hour leaving-water history</div><div class="sub">The blue line is leaving-water temperature. Red shading shows space-heating schedule periods; amber shows DHW Comfort or Eco periods.</div><div class="chart"><canvas id="chart" aria-label="24-hour ASHP leaving-water temperature chart"></canvas></div><div class="legend"><span class="key"><i class="sw" style="background:#0077c8;height:4px"></i>Leaving water</span><span class="key"><i class="sw" style="background:#ef444455"></i>Space-heating schedule</span><span class="key"><i class="sw" style="background:#f59e0b66"></i>DHW Comfort/Eco</span></div><div class="grid"><div class="item"><span>Samples stored</span><b id="samples">0</b></div><div class="item"><span>Next sample</span><b id="countdown">--</b></div></div></div>
-<div class="metric heat"><div class="label">Space heating</div><div class="value" id="heatStatus">--</div><div class="sub" id="heatDetail"></div><div class="grid"><div class="item"><span>Room</span><b id="room">--</b></div><div class="item"><span>Target</span><b id="roomTarget">--</b></div><div class="item"><span>Schedule now</span><b id="heatNow">--</b></div><div class="item"><span>Next change</span><b id="heatNext">--</b></div></div></div>
-<div class="metric"><div class="label">Leaving water temperature</div><div class="value" id="lwt">--</div><div class="sub">A hot value can remain after operation stops.</div><div class="grid"><div class="item"><span>Previous</span><b id="prevLwt">--</b></div><div class="item"><span>Outdoor</span><b id="outdoor">--</b></div></div></div>
-<div class="metric water"><div class="label">Domestic hot water</div><div class="value" id="dhwStatus">--</div><div class="sub" id="dhwDetail"></div><div class="grid"><div class="item"><span>Tank</span><b id="tank">--</b></div><div class="item"><span>Target</span><b id="tankTarget">--</b></div><div class="item"><span>Schedule now</span><b id="dhwNow">--</b></div><div class="item"><span>Next change</span><b id="dhwNext">--</b></div></div></div>
-<div class="message">Polling runs only while this page remains open and the browser permits background timers. Onecta does not expose the Madoka blue-light, compressor or diverter-valve state for the data observed.</div><div id="msg" class="message error hidden"></div><button id="refreshBtn">Refresh now</button><button id="diagBtn" class="secondary">Show diagnostic data</button><pre id="diag" class="diag hidden"></pre><button id="logoutBtn" class="secondary">Log out</button><p class="foot" id="updated">Not yet updated</p><p class="foot">Automatic interval: 440 seconds, approximately 196 calls/day. Manual refreshes and other clients use additional allowance.</p></section></main>
-<script>"use strict";
-const CLIENT_ID="fLFZ76Q4iT0LieOzYRsPiEG0",REDIRECT_URI="https://querkus-robur.github.io/ASHP-Water-Temp-Indicator/",WORKER_URL="https://daikin-onecta-proxy.daniel-quirke.workers.dev",AUTH_URL="https://idp.onecta.daikineurope.com/v1/oidc/authorize";
-const AK="daikin_access_token",RK="daikin_refresh_token",EK="daikin_token_expiry",HK="daikin_chart_history_v1";const POLL=440000,DAY=86400000,ROOM_DB=.2,DHW_TRIGGER=36,FLOW_RISE=2;let payload=null,timer=null,tick=null,nextAt=0,refreshing=false,lastCall=0;const $=id=>document.getElementById(id);
-$("loginBtn").onclick=login;$("refreshBtn").onclick=()=>fetchAndRender(false);$("diagBtn").onclick=diagnostic;$("logoutBtn").onclick=logout;
-function login(){const state=random();sessionStorage.setItem("oauth_state",state);location.assign(`${AUTH_URL}?${new URLSearchParams({response_type:"code",client_id:CLIENT_ID,redirect_uri:REDIRECT_URI,scope:"openid onecta:basic.integration offline_access",state})}`)}
-async function init(){const q=new URLSearchParams(location.search),code=q.get("code"),state=q.get("state");if(q.get("error")){showLoginError(q.get("error_description")||q.get("error"));return}if(code){history.replaceState({},document.title,REDIRECT_URI);if(state!==sessionStorage.getItem("oauth_state")){showLoginError("Login security check failed");return}sessionStorage.removeItem("oauth_state");await exchange(code);return}if(token()||refreshToken()){showDash();await fetchAndRender(true);startPolling()}}
-async function exchange(code){try{const r=await fetch(`${WORKER_URL}/token`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,redirect_uri:REDIRECT_URI})}),d=await json(r);if(!r.ok||!d.access_token)throw Error(errorText(d,"Token exchange failed"));storeTokens(d);showDash();await fetchAndRender(true);startPolling()}catch(e){showLoginError(e.message)}}
-function storeTokens(d){localStorage.setItem(AK,d.access_token);if(d.refresh_token)localStorage.setItem(RK,d.refresh_token);localStorage.setItem(EK,String(Date.now()+(Number(d.expires_in)||3600)*1000))}function token(){return localStorage.getItem(AK)}function refreshToken(){return localStorage.getItem(RK)}
-async function validToken(){const t=token(),e=Number(localStorage.getItem(EK)||0);return t&&Date.now()<e-60000?t:renew()}
-async function renew(){if(refreshing)throw Error("Token refresh already in progress");const rt=refreshToken();if(!rt)throw Error("Login expired");refreshing=true;try{const r=await fetch(`${WORKER_URL}/refresh`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:rt})}),d=await json(r);if(!r.ok||!d.access_token)throw Error(errorText(d,"Token refresh failed"));storeTokens(d);return d.access_token}finally{refreshing=false}}
-async function devices(){let t=await validToken(),r=await fetch(`${WORKER_URL}/devices`,{headers:{Authorization:`Bearer ${t}`}});if(r.status===401){t=await renew();r=await fetch(`${WORKER_URL}/devices`,{headers:{Authorization:`Bearer ${t}`}})}const d=await json(r);if(!r.ok)throw Error(errorText(d,`HTTP ${r.status}`));return d}
-async function fetchAndRender(auto){if(!auto&&lastCall&&Date.now()-lastCall<60000){message("Please wait one minute between manual refreshes","warning");return}$("refreshBtn").disabled=true;try{payload=await devices();lastCall=Date.now();const c=parse(payload),hist=historyData(),prev=[...hist].reverse().find(x=>new Date(x.timestamp)<new Date(c.timestamp))||null,sched={heat:scheduleState(c.heatSchedule,new Date(c.timestamp),"roomTemperature"),dhw:scheduleState(c.dhwSchedule,new Date(c.timestamp),"domesticHotWaterTemperature")},inf=infer(c,prev,sched);save(hist,c);render(c,prev,sched,inf);draw();$("updated").textContent=`Onecta timestamp: ${new Date(c.timestamp).toLocaleString()}`}catch(e){message(e.message,"error")}finally{$("refreshBtn").disabled=false}}
-function parse(p){const ds=Array.isArray(p)?p:(p.data||[]),d=ds.find(x=>x.deviceModel==="Altherma")||ds[0];if(!d)throw Error("No Altherma returned");const pts=d.managementPoints||[],m=pts.find(x=>x.embeddedId==="climateControlMainZone"),t=pts.find(x=>x.embeddedId==="domesticHotWaterTank");return{timestamp:d.timestamp||new Date().toISOString(),space:val(m?.onOffMode)==="on",dhw:val(t?.onOffMode)==="on",boost:val(t?.powerfulMode)==="on"||val(t?.isPowerfulModeActive)===true,lwt:n(path(m,"sensoryData.value.leavingWaterTemperature.value")),outdoor:n(path(m,"sensoryData.value.outdoorTemperature.value")),room:n(path(m,"sensoryData.value.roomTemperature.value")),roomTarget:first([path(m,"temperatureControl.value.operationModes.heating.setpoints.roomTemperature.value"),path(m,"temperatureControl.value.operationModes.auto.setpoints.roomTemperature.value")]),tank:n(path(t,"sensoryData.value.tankTemperature.value")),tankTarget:n(path(t,"temperatureControl.value.operationModes.heating.setpoints.domesticHotWaterTemperature.value")),heatSchedule:path(m,"schedule.value.modes.heating"),dhwSchedule:path(t,"schedule.value.modes.heating")}}
-function scheduleState(mode,date,field){if(!mode)return{current:null,next:null};const sn=val(mode.currentSchedule),sch=mode.schedules?.[sn],days=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];if(!sch)return{current:null,next:null};const all=[];for(let offset=-7;offset<=7;offset++){const day=new Date(date);day.setHours(0,0,0,0);day.setDate(day.getDate()+offset);for(const [time,a] of Object.entries(sch.actions?.[days[day.getDay()]]||{})){const [h,m,s]=time.split(":").map(Number);all.push({at:day.getTime()+h*3600000+m*60000+(s||0)*1000,value:a[field]})}}all.sort((a,b)=>a.at-b.at);const now=date.getTime(),current=[...all].reverse().find(x=>x.at<=now),next=all.find(x=>x.at>now);return{current:current?.value??null,next:next?`${new Date(next.at).toLocaleString([], {weekday:"short",hour:"2-digit",minute:"2-digit"})} → ${fmtSchedule(next.value)}`:null}}
-function infer(c,p,s){const roomDef=finite(c.room)&&finite(c.roomTarget)?c.roomTarget-c.room:null,tankDef=finite(c.tank)&&finite(c.tankTarget)?c.tankTarget-c.tank:null,roomDemand=c.space&&finite(roomDef)&&roomDef>=ROOM_DB,dhwScheduled=c.dhw&&["comfort","eco"].includes(s.dhw.current),reheat=c.dhw&&finite(c.tank)&&c.tank<=DHW_TRIGGER,flowDelta=p&&finite(c.lwt)&&finite(p.lwt)?c.lwt-p.lwt:null,rising=finite(flowDelta)&&flowDelta>=FLOW_RISE,e=[];e.push(roomDemand?`Room ${roomDef.toFixed(1)}°C below target`:"No room-temperature demand");e.push(dhwScheduled?`DHW schedule: ${s.dhw.current}`:"DHW schedule not calling");e.push(reheat?`Tank at/below ${DHW_TRIGGER}°C reheat trigger`:`Tank above ${DHW_TRIGGER}°C trigger`);e.push(finite(flowDelta)?`Flow change ${signed(flowDelta)}°C`:"No previous flow sample");let label="Status uncertain",detail="Evidence is insufficient",confidence="Low";if(c.boost){label="Probable DHW boost";detail="DHW Powerful mode is selected";confidence="High"}else if((dhwScheduled&&finite(tankDef)&&tankDef>=1)||reheat){label="Probable DHW demand";detail="DHW has priority over space heating";confidence=rising?"High":"Medium"}else if(roomDemand&&!dhwScheduled&&!reheat&&rising){label="Probable space heating";detail="Room demands heat, DHW is not calling and flow is rising";confidence="High"}else if(roomDemand&&!dhwScheduled&&!reheat){label="Space-heating demand";detail="Waiting for a confirmed rising flow trend";confidence="Medium"}else if(!roomDemand&&!dhwScheduled&&!reheat){label="No demand detected";detail="The ASHP may be idle or completing a cycle";confidence="Medium"}return{label,detail,confidence,e,roomDemand,dhwScheduled,reheat,flowDelta,rising}}
-function render(c,p,s,i){$("workload").textContent=i.label;$("workDetail").textContent=i.detail;$("confidence").textContent=i.confidence;$("confidence").className=i.confidence==="High"?"high":"medium";$("trend").textContent=finite(i.flowDelta)?`${i.rising?"Rising ":""}${signed(i.flowDelta)}°C`:"No baseline";$("evidence").innerHTML=i.e.map(x=>`<li>${escapeHtml(x)}</li>`).join("");$("heatStatus").textContent=!c.space?"Off":i.roomDemand?"Demand present":"Enabled";$("heatDetail").textContent=i.roomDemand?"Room temperature is below target.":"No room demand detected.";$("room").textContent=temp(c.room);$("roomTarget").textContent=temp(c.roomTarget);$("heatNow").textContent=fmtSchedule(s.heat.current);$("heatNext").textContent=s.heat.next||"--";$("lwt").textContent=temp(c.lwt);$("prevLwt").textContent=p?temp(p.lwt):"--";$("outdoor").textContent=temp(c.outdoor);$("dhwStatus").textContent=!c.dhw?"Off":i.dhwScheduled||i.reheat?"Demand possible":"Enabled";$("dhwDetail").textContent=i.dhwScheduled?"Current schedule calls for DHW.":i.reheat?`Tank is at/below ${DHW_TRIGGER}°C.`:"No scheduled or reheat demand evident.";$("tank").textContent=temp(c.tank);$("tankTarget").textContent=temp(c.tankTarget);$("dhwNow").textContent=fmtSchedule(s.dhw.current);$("dhwNext").textContent=s.dhw.next||"--"}
-function historyData(){try{return JSON.parse(localStorage.getItem(HK)||"[]")}catch{return[]}}function save(h,c){const cutoff=Date.now()-DAY,row={timestamp:c.timestamp,lwt:c.lwt,tank:c.tank,room:c.room,heatSchedule:c.heatSchedule,dhwSchedule:c.dhwSchedule};localStorage.setItem(HK,JSON.stringify([...h.filter(x=>new Date(x.timestamp).getTime()>=cutoff&&x.timestamp!==row.timestamp),row].slice(-220)))}
-function startPolling(){stopPolling();schedulePoll()}function stopPolling(){clearTimeout(timer);clearInterval(tick)}function schedulePoll(){nextAt=Date.now()+POLL;count();tick=setInterval(count,1000);timer=setTimeout(async()=>{clearInterval(tick);await fetchAndRender(true);schedulePoll()},POLL)}function count(){const secs=Math.max(0,Math.ceil((nextAt-Date.now())/1000));$("countdown").textContent=`${Math.floor(secs/60)}:${String(secs%60).padStart(2,"0")}`}
-function draw(){const canvas=$("chart"),h=historyData().filter(x=>finite(x.lwt)),rect=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1,w=Math.max(300,rect.width),ht=280;canvas.width=w*dpr;canvas.height=ht*dpr;const c=canvas.getContext("2d");c.scale(dpr,dpr);const pad={l:38,r:8,t:10,b:28},pw=w-pad.l-pad.r,ph=ht-pad.t-pad.b,end=Date.now(),start=end-DAY,vals=h.map(x=>x.lwt);let lo=vals.length?Math.floor((Math.min(...vals)-3)/5)*5:20,hi=vals.length?Math.ceil((Math.max(...vals)+3)/5)*5:60;if(hi<=lo)hi=lo+10;const X=t=>pad.l+(t-start)/DAY*pw,Y=v=>pad.t+(hi-v)/(hi-lo)*ph,latest=h[h.length-1];c.clearRect(0,0,w,ht);if(latest){bands(c,latest.heatSchedule,start,end,X,pad.t,ph,"#ef4444",.12,"roomTemperature");bands(c,latest.dhwSchedule,start,end,X,pad.t,ph,"#f59e0b",.17,"domesticHotWaterTemperature")}c.strokeStyle="#e2e8f0";c.fillStyle="#64748b";c.font="10px sans-serif";for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,y=Y(v);c.beginPath();c.moveTo(pad.l,y);c.lineTo(w-pad.r,y);c.stroke();c.textAlign="right";c.fillText(`${v.toFixed(0)}°`,pad.l-4,y+3)}for(let i=0;i<=4;i++){const t=start+DAY*i/4;c.textAlign="center";c.fillText(new Date(t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),X(t),ht-8)}if(h.length){c.strokeStyle="#0077c8";c.lineWidth=2;c.beginPath();h.forEach((p,i)=>{const x=X(new Date(p.timestamp).getTime()),y=Y(p.lwt);i?c.lineTo(x,y):c.moveTo(x,y)});c.stroke()}else{c.textAlign="center";c.fillText("Samples will appear while the page remains open",pad.l+pw/2,pad.t+ph/2)}$("samples").textContent=String(h.length)}
-function bands(c,mode,start,end,X,top,height,color,alpha,field){const sch=mode?.schedules?.[val(mode.currentSchedule)];if(!sch)return;const days=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];for(let d=new Date(start);d<end;d=new Date(d.getTime()+DAY)){const base=new Date(d);base.setHours(0,0,0,0);const es=Object.entries(sch.actions?.[days[base.getDay()]]||{}).sort(([a],[b])=>a.localeCompare(b));for(let i=0;i<es.length;i++){const [time,a]=es[i],active=field==="domesticHotWaterTemperature"?["comfort","eco"].includes(a[field]):a[field]!=null;if(!active)continue;const at=base.getTime()+seconds(time)*1000,bt=i+1<es.length?base.getTime()+seconds(es[i+1][0])*1000:base.getTime()+DAY,left=Math.max(start,at),right=Math.min(end,bt);if(right>left){c.save();c.globalAlpha=alpha;c.fillStyle=color;c.fillRect(X(left),top,X(right)-X(left),height);c.restore()}}}}
-async function diagnostic(){if(!$("diag").classList.contains("hidden")){$("diag").classList.add("hidden");$("diagBtn").textContent="Show diagnostic data";return}$("diag").textContent=JSON.stringify(payload,null,2);$("diag").classList.remove("hidden");$("diagBtn").textContent="Hide diagnostic data"}
-function logout(){stopPolling();[AK,RK,EK].forEach(k=>localStorage.removeItem(k));$("dash").classList.add("hidden");$("login").classList.remove("hidden")}
-function showDash(){$("login").classList.add("hidden");$("dash").classList.remove("hidden");setTimeout(draw,0)}function showLoginError(x){$("loginErr").textContent=x;$("loginErr").classList.remove("hidden")}function message(x,type){$("msg").textContent=x;$("msg").className=`message ${type}`}function val(x){return x&&typeof x==="object"&&"value" in x?x.value:x}function path(o,p){return p.split(".").reduce((a,k)=>a==null?undefined:a[k],o)}function n(x){const v=Number(val(x));return x!==null&&x!==""&&Number.isFinite(v)?v:null}function first(xs){for(const x of xs){const v=n(x);if(finite(v))return v}return null}function finite(x){return Number.isFinite(x)}function temp(x){return finite(x)?`${x.toFixed(1)} °C`:"--"}function signed(x){return `${x>=0?"+":""}${x.toFixed(1)}`}function seconds(t){const [h,m,s]=t.split(":").map(Number);return h*3600+m*60+(s||0)}function fmtSchedule(x){if(x==null)return"--";return typeof x==="number"?`${x.toFixed(1)} °C`:String(x).replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase())}function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}function random(){const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,b=>b.toString(16).padStart(2,"0")).join("")}async function json(r){const t=await r.text();try{return t?JSON.parse(t):{}}catch{return{error:t.slice(0,160)}}}function errorText(d,f){return d?.error_description||d?.message||d?.error||f}window.addEventListener("resize",draw);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")draw()});init();
-</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0077c8">
+
+<title>Daikin Altherma Monitor</title>
+
+<style>
+:root{
+  --blue:#0077c8;
+  --blue2:#005fa3;
+  --bg:#f4f6f8;
+  --panel:#f8fafc;
+  --text:#1a202c;
+  --muted:#64748b;
+  --line:#e2e8f0;
+  --green:#15803d;
+  --amber:#a16207;
+  --red:#b91c1c
+}
+
+*{
+  box-sizing:border-box
+}
+
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+  justify-content:center;
+  min-height:100vh;
+  padding:2rem 1rem;
+  margin:0
+}
+
+.card{
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 4px 16px #0002;
+  max-width:520px;
+  width:100%;
+  padding:1.5rem;
+  align-self:flex-start
+}
+
+h1{
+  color:var(--blue);
+  font-size:1.35rem;
+  margin:0
+}
+
+.subtitle,
+.sub,
+.foot{
+  color:var(--muted);
+  font-size:.84rem;
+  line-height:1.45
+}
+
+.subtitle{
+  margin:.4rem 0 1.5rem
+}
+
+.metric{
+  background:var(--panel);
+  border-left:4px solid var(--blue);
+  border-radius:12px;
+  padding:1rem;
+  margin-bottom:1rem
+}
+
+.heat{
+  border-color:#ef4444
+}
+
+.water{
+  border-color:#f59e0b
+}
+
+.label{
+  color:var(--muted);
+  font-size:.76rem;
+  font-weight:700;
+  letter-spacing:.06em;
+  text-transform:uppercase
+}
+
+.value{
+  font-size:1.5rem;
+  font-weight:750;
+  margin-top:.3rem
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:.7rem;
+  margin-top:.8rem
+}
+
+.item{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:9px;
+  padding:.7rem
+}
+
+.item span{
+  color:var(--muted);
+  display:block;
+  font-size:.68rem;
+  font-weight:700;
+  text-transform:uppercase
+}
+
+.item b{
+  display:block;
+  font-size:.93rem;
+  margin-top:.2rem
+}
+
+.evidence{
+  color:#475569;
+  font-size:.83rem;
+  line-height:1.45;
+  padding-left:1.2rem
+}
+
+.message{
+  background:#eff6ff;
+  border:1px solid #bfdbfe;
+  border-radius:10px;
+  color:#1e40af;
+  font-size:.84rem;
+  line-height:1.45;
+  margin:1rem 0;
+  padding:.8rem
+}
+
+.error{
+  background:#fef2f2;
+  border-color:#fecaca;
+  color:var(--red)
+}
+
+button{
+  background:var(--blue);
+  border:0;
+  border-radius:9px;
+  color:#fff;
+  cursor:pointer;
+  font-size:1rem;
+  font-weight:650;
+  margin-top:.65rem;
+  padding:.8rem;
+  width:100%
+}
+
+button:hover{
+  background:var(--blue2)
+}
+
+button:disabled{
+  opacity:.6
+}
+
+button.secondary{
+  background:#eef2f6;
+  color:#475569
+}
+
+.chart{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:10px;
+  margin-top:.7rem;
+  padding:.4rem
+}
+
+.chart canvas{
+  display:block;
+  width:100%;
+  height:290px
+}
+
+.legend{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.8rem;
+  color:var(--muted);
+  font-size:.71rem;
+  margin-top:.5rem
+}
+
+.key{
+  display:inline-flex;
+  align-items:center;
+  gap:.3rem
+}
+
+.sw{
+  display:inline-block;
+  width:14px;
+  height:7px;
+  border-radius:2px
+}
+
+.diag{
+  background:#0f172a;
+  border-radius:10px;
+  color:#e2e8f0;
+  font:11px/1.45 monospace;
+  max-height:500px;
+  overflow:auto;
+  padding:1rem;
+  white-space:pre-wrap
+}
+
+.foot{
+  text-align:center;
+  margin-top:1rem
+}
+
+.hidden{
+  display:none!important
+}
+
+.high{
+  color:var(--green)
+}
+
+.medium{
+  color:var(--amber)
+}
+
+@media(max-width:360px){
+  .grid{
+    grid-template-columns:1fr
+  }
+
+  .card{
+    padding:1rem
+  }
+}
+</style>
+</head>
+
+<body>
+
+<main class="card">
+
+<h1>Daikin Altherma Status</h1>
+
+<p class="subtitle">
+  Cloud-collected 24-hour water-temperature and schedule monitor
+</p>
+
+
+<section id="login">
+
+<p>
+  Connect your Daikin Onecta account.
+  The browser receives only a 24-hour dashboard session;
+  Daikin refresh tokens stay in Cloudflare KV.
+</p>
+
+<button id="loginBtn">
+  Log in with Daikin
+</button>
+
+<div
+  id="loginErr"
+  class="message error hidden">
+</div>
+
+</section>
+
+
+<section id="dash" class="hidden">
+
+
+<div class="metric">
+
+<div class="label">
+  Inferred ASHP workload
+</div>
+
+<div class="value" id="workload">
+  Loading...
+</div>
+
+<div class="sub" id="workDetail"></div>
+
+<div class="grid">
+
+<div class="item">
+<span>Confidence</span>
+<b id="confidence">--</b>
+</div>
+
+<div class="item">
+<span>Flow trend</span>
+<b id="trend">--</b>
+</div>
+
+</div>
+
+<ul
+  class="evidence"
+  id="evidence">
+</ul>
+
+</div>
+
+
+<div class="metric">
+
+<div class="label">
+  Temperature history & schedule
+</div>
+
+<div class="sub">
+  The chart shows the last 24 hours of measured temperatures
+  and the next 24 hours of scheduled room targets.
+  Amber shading shows DHW Comfort/Eco periods.
+</div>
+
+<div class="chart">
+
+<canvas
+  id="chart"
+  aria-label="ASHP temperatures and heating schedules">
+</canvas>
+
+</div>
+
+
+<div class="legend">
+
+<span class="key">
+<i
+  class="sw"
+  style="background:#0077c8;height:4px">
+</i>
+Leaving water
+</span>
+
+<span class="key">
+<i
+  class="sw"
+  style="background:#8b5cf6;height:4px">
+</i>
+Tank temp
+</span>
+
+<span class="key">
+<i
+  class="sw"
+  style="background:#16a34a;height:4px">
+</i>
+Room temp
+</span>
+
+<span class="key">
+<i
+  class="sw"
+  style="background:#ef4444;height:4px">
+</i>
+Room target
+</span>
+
+<span class="key">
+<i
+  class="sw"
+  style="background:#f59e0b66">
+</i>
+DHW Comfort/Eco
+</span>
+
+</div>
+
+
+<div class="grid">
+
+<div class="item">
+<span>Samples</span>
+<b id="samples">0</b>
+</div>
+
+<div class="item">
+<span>Latest collection</span>
+<b id="latestCollect">--</b>
+</div>
+
+</div>
+
+</div>
+
+
+<div class="metric heat">
+
+<div class="label">
+  Space heating
+</div>
+
+<div
+  class="value"
+  id="heatStatus">
+  --
+</div>
+
+<div
+  class="sub"
+  id="heatDetail">
+</div>
+
+<div class="grid">
+
+<div class="item">
+<span>Room</span>
+<b id="room">--</b>
+</div>
+
+<div class="item">
+<span>Target</span>
+<b id="roomTarget">--</b>
+</div>
+
+<div class="item">
+<span>Schedule now</span>
+<b id="heatNow">--</b>
+</div>
+
+<div class="item">
+<span>Next change</span>
+<b id="heatNext">--</b>
+</div>
+
+</div>
+
+</div>
+
+
+<div class="metric">
+
+<div class="label">
+  Leaving water temperature
+</div>
+
+<div
+  class="value"
+  id="lwt">
+  --
+</div>
+
+<div class="sub">
+  The latest sample collected by Cloudflare,
+  even while this app was closed.
+</div>
+
+<div class="grid">
+
+<div class="item">
+<span>Previous sample</span>
+<b id="prevLwt">--</b>
+</div>
+
+<div class="item">
+<span>Outdoor</span>
+<b id="outdoor">--</b>
+</div>
+
+</div>
+
+</div>
+
+
+<div class="metric water">
+
+<div class="label">
+  Domestic hot water
+</div>
+
+<div
+  class="value"
+  id="dhwStatus">
+  --
+</div>
+
+<div
+  class="sub"
+  id="dhwDetail">
+</div>
+
+<div class="grid">
+
+<div class="item">
+<span>Tank</span>
+<b id="tank">--</b>
+</div>
+
+<div class="item">
+<span>Target</span>
+<b id="tankTarget">--</b>
+</div>
+
+<div class="item">
+<span>Schedule now</span>
+<b id="dhwNow">--</b>
+</div>
+
+<div class="item">
+<span>Next change</span>
+<b id="dhwNext">--</b>
+</div>
+
+</div>
+
+</div>
+
+
+<div class="message">
+
+Cloudflare collects the data in the background.
+
+The workload remains inferred because the observed
+Onecta data does not expose the compressor-running,
+Madoka blue-light or diverter-valve state.
+
+</div>
+
+
+<div
+  id="msg"
+  class="message error hidden">
+</div>
+
+
+<button id="refreshBtn">
+  Reload collected history
+</button>
+
+
+<button
+  id="diagBtn"
+  class="secondary">
+  Show latest stored sample
+</button>
+
+
+<pre
+  id="diag"
+  class="diag hidden">
+</pre>
+
+
+<button
+  id="logoutBtn"
+  class="secondary">
+  Log out locally
+</button>
+
+
+<p
+  class="foot"
+  id="updated">
+  Not yet updated
+</p>
+
+
+</section>
+
+</main>
+
+
+<script>
+
+"use strict";
+
+
+// =====================================================
+// CONFIGURATION
+// =====================================================
+
+const CLIENT_ID =
+  "fLFZ76Q4iT0LieOzYRsPiEG0";
+
+const REDIRECT_URI =
+  "https://querkus-robur.github.io/ASHP-Water-Temp-Indicator/";
+
+const WORKER_URL =
+  "https://daikin-onecta-proxy.daniel-quirke.workers.dev";
+
+const AUTH_URL =
+  "https://idp.onecta.daikineurope.com/v1/oidc/authorize";
+
+
+const SK =
+  "daikin_dashboard_session";
+
+
+const ROOM_DB =
+  0.2;
+
+const DHW_TRIGGER =
+  36;
+
+const FLOW_RISE =
+  2;
+
+
+let samples =
+  [];
+
+
+// =====================================================
+// HTML ELEMENTS
+// =====================================================
+
+const $ =
+  id =>
+    document.getElementById(
+      id
+    );
+
+
+$("loginBtn")
+  .onclick =
+    login;
+
+
+$("refreshBtn")
+  .onclick =
+    loadHistory;
+
+
+$("diagBtn")
+  .onclick =
+    diagnostic;
+
+
+$("logoutBtn")
+  .onclick =
+    logout;
+
+
+// =====================================================
+// LOGIN
+// =====================================================
+
+function login() {
+
+  const state =
+    random();
+
+
+  sessionStorage
+    .setItem(
+      "oauth_state",
+      state
+    );
+
+
+  const parameters =
+    new URLSearchParams({
+
+      response_type:
+        "code",
+
+      client_id:
+        CLIENT_ID,
+
+      redirect_uri:
+        REDIRECT_URI,
+
+      scope:
+        "openid onecta:basic.integration offline_access",
+
+      state:
+        state
+
+    });
+
+
+  location.assign(
+    `${AUTH_URL}?${parameters}`
+  );
+
+}
+
+
+// =====================================================
+// INITIALISE
+// =====================================================
+
+async function init() {
+
+  const query =
+    new URLSearchParams(
+      location.search
+    );
+
+
+  const code =
+    query.get(
+      "code"
+    );
+
+
+  const returnedState =
+    query.get(
+      "state"
+    );
+
+
+  if (
+    query.get(
+      "error"
+    )
+  ) {
+
+    showLoginError(
+      query.get(
+        "error_description"
+      )
+
+      ||
+
+      query.get(
+        "error"
+      )
+    );
+
+    return;
+  }
+
+
+  if (code) {
+
+    history.replaceState(
+      {},
+      document.title,
+      REDIRECT_URI
+    );
+
+
+    if (
+      returnedState !==
+      sessionStorage.getItem(
+        "oauth_state"
+      )
+    ) {
+
+      showLoginError(
+        "Login security check failed"
+      );
+
+      return;
+    }
+
+
+    sessionStorage
+      .removeItem(
+        "oauth_state"
+      );
+
+
+    await exchange(
+      code
+    );
+
+    return;
+  }
+
+
+  if (
+    localStorage.getItem(
+      SK
+    )
+  ) {
+
+    showDash();
+
+    await loadHistory();
+
+  }
+
+}
+
+
+// =====================================================
+// CREATE 24-HOUR DASHBOARD SESSION
+// =====================================================
+
+async function exchange(
+  code
+) {
+
+  try {
+
+    const response =
+      await fetch(
+        `${WORKER_URL}/token`,
+        {
+
+          method:
+            "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+
+              code:
+                code,
+
+              redirect_uri:
+                REDIRECT_URI
+
+            })
+
+        }
+      );
+
+
+    const data =
+      await json(
+        response
+      );
+
+
+    if (
+      !response.ok
+      ||
+      !data.session_token
+    ) {
+
+      throw Error(
+        errorText(
+          data,
+          "Session creation failed"
+        )
+      );
+
+    }
+
+
+    localStorage
+      .setItem(
+        SK,
+        data.session_token
+      );
+
+
+    showDash();
+
+    await loadHistory();
+
+
+  } catch (error) {
+
+    showLoginError(
+      error.message
+    );
+
+  }
+
+}
+
+
+// =====================================================
+// LOAD HISTORY FROM CLOUDFLARE
+// =====================================================
+
+async function loadHistory() {
+
+  $("refreshBtn")
+    .disabled =
+      true;
+
+
+  try {
+
+    const session =
+      localStorage.getItem(
+        SK
+      );
+
+
+    if (!session) {
+
+      throw Error(
+        "Please log in with Daikin"
+      );
+
+    }
+
+
+    const response =
+      await fetch(
+        `${WORKER_URL}/history`,
+        {
+
+          cache:
+            "no-store",
+
+          headers: {
+
+            Authorization:
+              `Bearer ${session}`
+
+          }
+
+        }
+      );
+
+
+    const data =
+      await json(
+        response
+      );
+
+
+    if (
+      response.status ===
+      401
+    ) {
+
+      localStorage
+        .removeItem(
+          SK
+        );
+
+
+      $("dash")
+        .classList
+        .add(
+          "hidden"
+        );
+
+
+      $("login")
+        .classList
+        .remove(
+          "hidden"
+        );
+
+
+      throw Error(
+        "Your dashboard session has expired. Please log in again."
+      );
+
+    }
+
+
+    if (
+      !response.ok
+    ) {
+
+      throw Error(
+        errorText(
+          data,
+          "History request failed"
+        )
+      );
+
+    }
+
+
+    samples =
+      Array.isArray(
+        data.samples
+      )
+
+        ? data.samples
+
+        : [];
+
+
+    renderHistory();
+
+
+  } catch (error) {
+
+    message(
+      error.message
+    );
+
+
+  } finally {
+
+    $("refreshBtn")
+      .disabled =
+        false;
+
+  }
+
+}
+
+
+// =====================================================
+// RENDER LATEST DATA
+// =====================================================
+
+function renderHistory() {
+
+  const current =
+    samples.at(
+      -1
+    );
+
+
+  const previous =
+    samples.at(
+      -2
+    )
+
+    ||
+
+    null;
+
+
+  if (!current) {
+
+    message(
+      "No samples have been collected yet. Wait for the next Cloudflare Cron run."
+    );
+
+    draw();
+
+    return;
+  }
+
+
+  const heatingSchedule =
+    scheduleState(
+
+      current
+        .heatSchedule,
+
+      new Date(
+        current.timestamp
+      ),
+
+      "roomTemperature"
+
+    );
+
+
+  const dhwSchedule =
+    scheduleState(
+
+      current
+        .dhwSchedule,
+
+      new Date(
+        current.timestamp
+      ),
+
+      "domesticHotWaterTemperature"
+
+    );
+
+
+  const inference =
+    infer(
+
+      current,
+
+      previous,
+
+      {
+        heat:
+          heatingSchedule,
+
+        dhw:
+          dhwSchedule
+      }
+
+    );
+
+
+  $("workload")
+    .textContent =
+      inference.label;
+
+
+  $("workDetail")
+    .textContent =
+      inference.detail;
+
+
+  $("confidence")
+    .textContent =
+      inference.confidence;
+
+
+  $("confidence")
+    .className =
+
+      inference.confidence ===
+      "High"
+
+        ? "high"
+
+        : "medium";
+
+
+  $("trend")
+    .textContent =
+
+      finite(
+        inference.flowDelta
+      )
+
+        ? `${
+            inference.rising
+              ? "Rising "
+              : ""
+          }${
+            signed(
+              inference.flowDelta
+            )
+          }°C`
+
+        : "No baseline";
+
+
+  $("evidence")
+    .innerHTML =
+
+      inference.evidence
+
+        .map(
+          text =>
+            `<li>${
+              escapeHtml(
+                text
+              )
+            }</li>`
+        )
+
+        .join("");
+
+
+  $("heatStatus")
+    .textContent =
+
+      !current.spaceEnabled
+
+        ? "Off"
+
+        : inference.roomDemand
+
+          ? "Demand present"
+
+          : "Enabled";
+
+
+  $("heatDetail")
+    .textContent =
+
+      inference.roomDemand
+
+        ? "Room temperature is below target."
+
+        : "No room demand detected.";
+
+
+  $("room")
+    .textContent =
+      temperature(
+        current.room
+      );
+
+
+  $("roomTarget")
+    .textContent =
+      temperature(
+        current.roomTarget
+      );
+
+
+  $("heatNow")
+    .textContent =
+      formatScheduleValue(
+        heatingSchedule
+          .current
+      );
+
+
+  $("heatNext")
+    .textContent =
+      heatingSchedule
+        .next
+
+      ||
+
+      "--";
+
+
+  $("lwt")
+    .textContent =
+      temperature(
+        current.lwt
+      );
+
+
+  $("prevLwt")
+    .textContent =
+
+      previous
+
+        ? temperature(
+            previous.lwt
+          )
+
+        : "--";
+
+
+  $("outdoor")
+    .textContent =
+      temperature(
+        current.outdoor
+      );
+
+
+  $("dhwStatus")
+    .textContent =
+
+      !current.dhwEnabled
+
+        ? "Off"
+
+        : (
+            inference.dhwScheduled
+            ||
+            inference.reheat
+          )
+
+          ? "Demand possible"
+
+          : "Enabled";
+
+
+  $("dhwDetail")
+    .textContent =
+
+      inference.dhwScheduled
+
+        ? "Current schedule calls for DHW."
+
+        : inference.reheat
+
+          ? `Tank is at/below ${DHW_TRIGGER}°C.`
+
+          : "No scheduled or reheat demand evident.";
+
+
+  $("tank")
+    .textContent =
+      temperature(
+        current.tank
+      );
+
+
+  $("tankTarget")
+    .textContent =
+      temperature(
+        current.tankTarget
+      );
+
+
+  $("dhwNow")
+    .textContent =
+      formatScheduleValue(
+        dhwSchedule
+          .current
+      );
+
+
+  $("dhwNext")
+    .textContent =
+      dhwSchedule
+        .next
+
+      ||
+
+      "--";
+
+
+  $("samples")
+    .textContent =
+      String(
+        samples.length
+      );
+
+
+  $("latestCollect")
+    .textContent =
+      new Date(
+        current.collectedAt
+        ||
+        current.timestamp
+      )
+      .toLocaleTimeString(
+        [],
+        {
+          hour:
+            "2-digit",
+          minute:
+            "2-digit"
+        }
+      );
+
+
+  $("updated")
+    .textContent =
+      `Latest Onecta timestamp: ${
+        new Date(
+          current.timestamp
+        )
+        .toLocaleString()
+      }`;
+
+
+  draw();
+
+}
+
+
+// =====================================================
+// SCHEDULE STATE
+// =====================================================
+
+function scheduleState(
+  mode,
+  date,
+  field
+) {
+
+  if (!mode) {
+
+    return {
+      current:null,
+      next:null
+    };
+
+  }
+
+
+  const actions =
+    mode.actions ||
+    {};
+
+
+  const days = [
+
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday"
+
+  ];
+
+
+  const all =
+    [];
+
+
+  for (
+    let offset = -7;
+    offset <= 7;
+    offset++
+  ) {
+
+    const day =
+      new Date(
+        date
+      );
+
+
+    day.setHours(
+      0,0,0,0
+    );
+
+
+    day.setDate(
+      day.getDate()
+      +
+      offset
+    );
+
+
+    const entries =
+      actions[
+        days[
+          day.getDay()
+        ]
+      ]
+
+      ||
+
+      {};
+
+
+    for (
+      const [
+        time,
+        value
+      ]
+      of Object.entries(
+        entries
+      )
+    ) {
+
+      const [
+        hours,
+        minutes,
+        seconds
+      ] =
+        time
+          .split(":")
+          .map(Number);
+
+
+      all.push({
+
+        at:
+          day.getTime()
+
+          +
+
+          hours *
+          3600000
+
+          +
+
+          minutes *
+          60000
+
+          +
+
+          (
+            seconds ||
+            0
+          ) *
+          1000,
+
+
+        value:
+          value
+
+      });
+
+    }
+
+  }
+
+
+  all.sort(
+    (a,b) =>
+      a.at -
+      b.at
+  );
+
+
+  const now =
+    date.getTime();
+
+
+  const current =
+    [...all]
+      .reverse()
+      .find(
+        item =>
+          item.at <= now
+      );
+
+
+  const next =
+    all.find(
+      item =>
+        item.at > now
+    );
+
+
+  return {
+
+    current:
+      current?.value ??
+      null,
+
+
+    next:
+      next
+
+        ? `${
+            new Date(
+              next.at
+            )
+            .toLocaleString(
+              [],
+              {
+                weekday:
+                  "short",
+
+                hour:
+                  "2-digit",
+
+                minute:
+                  "2-digit"
+              }
+            )
+          } → ${
+            formatScheduleValue(
+              next.value
+            )
+          }`
+
+        : null
+
+  };
+
+}
+
+
+// =====================================================
+// INFER WORKLOAD
+// =====================================================
+
+function infer(
+  current,
+  previous,
+  schedules
+) {
+
+  const roomDeficit =
+
+    finite(
+      current.room
+    )
+
+    &&
+
+    finite(
+      current.roomTarget
+    )
+
+      ? current.roomTarget
+        -
+        current.room
+
+      : null;
+
+
+  const tankDeficit =
+
+    finite(
+      current.tank
+    )
+
+    &&
+
+    finite(
+      current.tankTarget
+    )
+
+      ? current.tankTarget
+        -
+        current.tank
+
+      : null;
+
+
+  const roomDemand =
+
+    current.spaceEnabled
+
+    &&
+
+    finite(
+      roomDeficit
+    )
+
+    &&
+
+    roomDeficit >=
+      ROOM_DB;
+
+
+  const dhwScheduled =
+
+    current.dhwEnabled
+
+    &&
+
+    [
+      "comfort",
+      "eco"
+    ].includes(
+      schedules
+        .dhw
+        .current
+    );
+
+
+  const reheat =
+
+    current.dhwEnabled
+
+    &&
+
+    finite(
+      current.tank
+    )
+
+    &&
+
+    current.tank <=
+      DHW_TRIGGER;
+
+
+  const flowDelta =
+
+    previous
+
+    &&
+
+    finite(
+      current.lwt
+    )
+
+    &&
+
+    finite(
+      previous.lwt
+    )
+
+      ? current.lwt
+        -
+        previous.lwt
+
+      : null;
+
+
+  const rising =
+
+    finite(
+      flowDelta
+    )
+
+    &&
+
+    flowDelta >=
+      FLOW_RISE;
+
+
+  const evidence = [
+
+    roomDemand
+
+      ? `Room ${
+          roomDeficit
+            .toFixed(
+              1
+            )
+        }°C below target`
+
+      : "No room-temperature demand",
+
+
+    dhwScheduled
+
+      ? `DHW schedule: ${
+          schedules
+            .dhw
+            .current
+        }`
+
+      : "DHW schedule not calling",
+
+
+    reheat
+
+      ? `Tank at/below ${DHW_TRIGGER}°C reheat trigger`
+
+      : `Tank above ${DHW_TRIGGER}°C trigger`,
+
+
+    finite(
+      flowDelta
+    )
+
+      ? `Flow change ${
+          signed(
+            flowDelta
+          )
+        }°C`
+
+      : "No previous flow sample"
+
+  ];
+
+
+  let label =
+    "Status uncertain";
+
+  let detail =
+    "Evidence is insufficient";
+
+  let confidence =
+    "Low";
+
+
+  if (
+    current.dhwBoost
+  ) {
+
+    label =
+      "Probable DHW boost";
+
+    detail =
+      "DHW Powerful mode is selected";
+
+    confidence =
+      "High";
+
+  }
+
+
+  else if (
+
+    (
+      dhwScheduled
+
+      &&
+
+      finite(
+        tankDeficit
+      )
+
+      &&
+
+      tankDeficit >=
+        1
+    )
+
+    ||
+
+    reheat
+
+  ) {
+
+    label =
+      "Probable DHW demand";
+
+    detail =
+      "DHW has priority over space heating";
+
+    confidence =
+
+      rising
+
+        ? "High"
+
+        : "Medium";
+
+  }
+
+
+  else if (
+
+    roomDemand
+
+    &&
+
+    !dhwScheduled
+
+    &&
+
+    !reheat
+
+    &&
+
+    rising
+
+  ) {
+
+    label =
+      "Probable space heating";
+
+    detail =
+      "Room demands heat, DHW is not calling and flow is rising";
+
+    confidence =
+      "High";
+
+  }
+
+
+  else if (
+
+    roomDemand
+
+    &&
+
+    !dhwScheduled
+
+    &&
+
+    !reheat
+
+  ) {
+
+    label =
+      "Space-heating demand";
+
+    detail =
+      "Waiting for a confirmed rising flow trend";
+
+    confidence =
+      "Medium";
+
+  }
+
+
+  else if (
+
+    !roomDemand
+
+    &&
+
+    !dhwScheduled
+
+    &&
+
+    !reheat
+
+  ) {
+
+    label =
+      "No demand detected";
+
+    detail =
+      "The ASHP may be idle or completing a cycle";
+
+    confidence =
+      "Medium";
+
+  }
+
+
+  return {
+
+    label,
+    detail,
+    confidence,
+    evidence,
+    roomDemand,
+    dhwScheduled,
+    reheat,
+    flowDelta,
+    rising
+
+  };
+
+}
+
+
+// =====================================================
+// DRAW GRAPH
+// Previous 24h + future 24h
+// =====================================================
+
+function draw() {
+
+  const canvas =
+    $("chart");
+
+
+  const history =
+    samples.filter(
+      sample =>
+
+        finite(
+          sample.lwt
+        )
+
+        ||
+
+        finite(
+          sample.tank
+        )
+
+        ||
+
+        finite(
+          sample.room
+        )
+    );
+
+
+  const rect =
+    canvas
+      .getBoundingClientRect();
+
+
+  const dpr =
+    window.devicePixelRatio
+    ||
+    1;
+
+
+  const width =
+    Math.max(
+      300,
+      rect.width
+    );
+
+
+  const height =
+    290;
+
+
+  canvas.width =
+    width *
+    dpr;
+
+
+  canvas.height =
+    height *
+    dpr;
+
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+
+  ctx.scale(
+    dpr,
+    dpr
+  );
+
+
+  const pad = {
+    l:38,
+    r:8,
+    t:10,
+    b:28
+  };
+
+
+  const plotWidth =
+    width -
+    pad.l -
+    pad.r;
+
+
+  const plotHeight =
+    height -
+    pad.t -
+    pad.b;
+
+
+  const now =
+    Date.now();
+
+
+  const start =
+    now -
+    86400000;
+
+
+  const end =
+    now +
+    86400000;
+
+
+  const values =
+    [];
+
+
+  history.forEach(
+    sample => {
+
+      [
+        sample.lwt,
+        sample.tank,
+        sample.room
+      ]
+      .forEach(
+        value => {
+
+          if (
+            finite(
+              value
+            )
+          ) {
+
+            values.push(
+              value
+            );
+
+          }
+
+        }
+      );
+
+    }
+  );
+
+
+  const latest =
+    history.at(
+      -1
+    );
+
+
+  if (
+    latest?.heatSchedule
+  ) {
+
+    scheduledTargetValues(
+
+      latest
+        .heatSchedule,
+
+      now,
+      end
+
+    )
+    .forEach(
+      point => {
+
+        if (
+          finite(
+            point.value
+          )
+        ) {
+
+          values.push(
+            point.value
+          );
+
+        }
+
+      }
+    );
+
+  }
+
+
+  let low =
+    values.length
+
+      ? Math.floor(
+          (
+            Math.min(
+              ...values
+            )
+            -
+            3
+          )
+          /
+          5
+        )
+        *
+        5
+
+      : 15;
+
+
+  let high =
+    values.length
+
+      ? Math.ceil(
+          (
+            Math.max(
+              ...values
+            )
+            +
+            3
+          )
+          /
+          5
+        )
+        *
+        5
+
+      : 60;
+
+
+  if (
+    high <= low
+  ) {
+
+    high =
+      low +
+      10;
+
+  }
+
+
+  const X =
+    time =>
+
+      pad.l
+
+      +
+
+      (
+        time -
+        start
+      )
+      /
+      (
+        end -
+        start
+      )
+
+      *
+      plotWidth;
+
+
+  const Y =
+    value =>
+
+      pad.t
+
+      +
+
+      (
+        high -
+        value
+      )
+      /
+      (
+        high -
+        low
+      )
+
+      *
+      plotHeight;
+
+
+  ctx.clearRect(
+    0,
+    0,
+    width,
+    height
+  );
+
+
+  // DHW scheduled periods
+
+  if (
+    latest?.dhwSchedule
+  ) {
+
+    drawScheduleBands(
+
+      ctx,
+
+      latest.dhwSchedule,
+
+      start,
+      end,
+
+      X,
+
+      pad.t,
+      plotHeight,
+
+      "#f59e0b",
+      .16,
+
+      "domesticHotWaterTemperature"
+
+    );
+
+  }
+
+
+  // Horizontal grid
+
+  ctx.strokeStyle =
+    "#e2e8f0";
+
+  ctx.fillStyle =
+    "#64748b";
+
+  ctx.font =
+    "10px sans-serif";
+
+
+  for (
+    let i = 0;
+    i <= 4;
+    i++
+  ) {
+
+    const value =
+      low
+
+      +
+
+      (
+        high -
+        low
+      )
+
+      *
+      i
+      /
+      4;
+
+
+    const y =
+      Y(
+        value
+      );
+
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      pad.l,
+      y
+    );
+
+    ctx.lineTo(
+      width -
+      pad.r,
+      y
+    );
+
+    ctx.stroke();
+
+
+    ctx.textAlign =
+      "right";
+
+
+    ctx.fillText(
+
+      `${value.toFixed(0)}°`,
+
+      pad.l -
+      4,
+
+      y +
+      3
+
+    );
+
+  }
+
+
+  // Time axis
+
+  for (
+    let i = 0;
+    i <= 4;
+    i++
+  ) {
+
+    const time =
+      start
+
+      +
+
+      (
+        end -
+        start
+      )
+
+      *
+      i
+      /
+      4;
+
+
+    ctx.textAlign =
+      "center";
+
+
+    ctx.fillText(
+
+      new Date(
+        time
+      )
+      .toLocaleTimeString(
+        [],
+        {
+          hour:
+            "2-digit",
+
+          minute:
+            "2-digit"
+        }
+      ),
+
+      X(
+        time
+      ),
+
+      height -
+      8
+
+    );
+
+  }
+
+
+  // NOW line
+
+  ctx.strokeStyle =
+    "#94a3b8";
+
+  ctx.setLineDash(
+    [4,4]
+  );
+
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    X(now),
+    pad.t
+  );
+
+  ctx.lineTo(
+    X(now),
+    pad.t +
+    plotHeight
+  );
+
+  ctx.stroke();
+
+
+  ctx.setLineDash(
+    []
+  );
+
+
+  ctx.fillStyle =
+    "#64748b";
+
+  ctx.textAlign =
+    "center";
+
+
+  ctx.fillText(
+
+    "Now",
+
+    X(now),
+
+    pad.t +
+    10
+
+  );
+
+
+  // Historical measured values
+
+  const recent =
+    history.filter(
+      sample =>
+
+        new Date(
+          sample.timestamp
+        ).getTime()
+
+        >=
+
+        start
+    );
+
+
+  drawSeries(
+    ctx,
+    recent,
+    "lwt",
+    "#0077c8",
+    X,
+    Y
+  );
+
+
+  drawSeries(
+    ctx,
+    recent,
+    "tank",
+    "#8b5cf6",
+    X,
+    Y
+  );
+
+
+  drawSeries(
+    ctx,
+    recent,
+    "room",
+    "#16a34a",
+    X,
+    Y
+  );
+
+
+  // Future room target schedule
+
+  if (
+    latest?.heatSchedule
+  ) {
+
+    drawTargetSchedule(
+
+      ctx,
+
+      latest
+        .heatSchedule,
+
+      now,
+      end,
+
+      X,
+      Y
+
+    );
+
+  }
+
+
+  if (
+    !history.length
+  ) {
+
+    ctx.fillStyle =
+      "#64748b";
+
+    ctx.textAlign =
+      "center";
+
+
+    ctx.fillText(
+
+      "Waiting for Cloudflare samples",
+
+      pad.l +
+      plotWidth /
+      2,
+
+      pad.t +
+      plotHeight /
+      2
+
+    );
+
+  }
+
+}
+
+
+// =====================================================
+// DRAW TEMPERATURE SERIES
+// =====================================================
+
+function drawSeries(
+  ctx,
+  data,
+  key,
+  colour,
+  X,
+  Y
+) {
+
+  const points =
+    data.filter(
+      point =>
+        finite(
+          point[key]
+        )
+    );
+
+
+  if (
+    !points.length
+  ) {
+
+    return;
+
+  }
+
+
+  ctx.strokeStyle =
+    colour;
+
+  ctx.lineWidth =
+    2;
+
+
+  ctx.beginPath();
+
+
+  points.forEach(
+    (point,index) => {
+
+      const x =
+        X(
+          new Date(
+            point.timestamp
+          ).getTime()
+        );
+
+
+      const y =
+        Y(
+          point[key]
+        );
+
+
+      if (
+        index === 0
+      ) {
+
+        ctx.moveTo(
+          x,
+          y
+        );
+
+      } else {
+
+        ctx.lineTo(
+          x,
+          y
+        );
+
+      }
+
+    }
+  );
+
+
+  ctx.stroke();
+
+}
+
+
+// =====================================================
+// FUTURE ROOM TARGET VALUES
+// =====================================================
+
+function scheduledTargetValues(
+  mode,
+  start,
+  end
+) {
+
+  if (
+    !mode?.actions
+  ) {
+
+    return [];
+
+  }
+
+
+  const days = [
+
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday"
+
+  ];
+
+
+  const events =
+    [];
+
+
+  for (
+    let offset = -1;
+    offset <= 2;
+    offset++
+  ) {
+
+    const day =
+      new Date(
+        start
+      );
+
+
+    day.setHours(
+      0,0,0,0
+    );
+
+
+    day.setDate(
+      day.getDate()
+      +
+      offset
+    );
+
+
+    const entries =
+      mode.actions[
+        days[
+          day.getDay()
+        ]
+      ]
+
+      ||
+
+      {};
+
+
+    for (
+      const [
+        time,
+        value
+      ]
+      of Object.entries(
+        entries
+      )
+    ) {
+
+      const at =
+        day.getTime()
+
+        +
+
+        seconds(
+          time
+        )
+        *
+        1000;
+
+
+      if (
+        at <= end
+      ) {
+
+        events.push({
+
+          at,
+
+          value:
+            Number(
+              value
+            )
+
+        });
+
+      }
+
+    }
+
+  }
+
+
+  events.sort(
+    (a,b) =>
+      a.at -
+      b.at
+  );
+
+
+  const prior =
+    [...events]
+      .reverse()
+      .find(
+        event =>
+          event.at <=
+          start
+      );
+
+
+  const result =
+    [];
+
+
+  if (
+    prior
+    &&
+    finite(
+      prior.value
+    )
+  ) {
+
+    result.push({
+
+      at:
+        start,
+
+      value:
+        prior.value
+
+    });
+
+  }
+
+
+  for (
+    const event
+    of events
+  ) {
+
+    if (
+      event.at >
+        start
+
+      &&
+
+      event.at <=
+        end
+
+      &&
+
+      finite(
+        event.value
+      )
+    ) {
+
+      result.push(
+        event
+      );
+
+    }
+
+  }
+
+
+  return result;
+
+}
+
+
+// =====================================================
+// DRAW FUTURE ROOM TARGET STEP-LINE
+// =====================================================
+
+function drawTargetSchedule(
+  ctx,
+  mode,
+  start,
+  end,
+  X,
+  Y
+) {
+
+  const points =
+    scheduledTargetValues(
+      mode,
+      start,
+      end
+    );
+
+
+  if (
+    !points.length
+  ) {
+
+    return;
+
+  }
+
+
+  ctx.strokeStyle =
+    "#ef4444";
+
+  ctx.lineWidth =
+    2;
+
+
+  ctx.setLineDash(
+    [6,3]
+  );
+
+
+  ctx.beginPath();
+
+
+  for (
+    let index = 0;
+    index <
+    points.length;
+    index++
+  ) {
+
+    const point =
+      points[index];
+
+
+    const x =
+      X(
+        point.at
+      );
+
+
+    const y =
+      Y(
+        point.value
+      );
+
+
+    if (
+      index === 0
+    ) {
+
+      ctx.moveTo(
+        x,
+        y
+      );
+
+    } else {
+
+      const previous =
+        points[
+          index -
+          1
+        ];
+
+
+      ctx.lineTo(
+
+        x,
+
+        Y(
+          previous.value
+        )
+
+      );
+
+
+      ctx.lineTo(
+        x,
+        y
+      );
+
+    }
+
+  }
+
+
+  const last =
+    points.at(
+      -1
+    );
+
+
+  ctx.lineTo(
+
+    X(
+      end
+    ),
+
+    Y(
+      last.value
+    )
+
+  );
+
+
+  ctx.stroke();
+
+
+  ctx.setLineDash(
+    []
+  );
+
+}
+
+
+// =====================================================
+// DRAW DHW SCHEDULE BANDS
+// =====================================================
+
+function drawScheduleBands(
+  ctx,
+  mode,
+  start,
+  end,
+  X,
+  top,
+  height,
+  colour,
+  alpha,
+  field
+) {
+
+  if (
+    !mode?.actions
+  ) {
+
+    return;
+
+  }
+
+
+  const days = [
+
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday"
+
+  ];
+
+
+  for (
+    let day =
+      new Date(
+        start
+      );
+
+    day <
+      end;
+
+    day =
+      new Date(
+        day.getTime()
+        +
+        86400000
+      )
+  ) {
+
+    const base =
+      new Date(
+        day
+      );
+
+
+    base.setHours(
+      0,0,0,0
+    );
+
+
+    const entries =
+      Object.entries(
+
+        mode.actions[
+          days[
+            base.getDay()
+          ]
+        ]
+
+        ||
+
+        {}
+
+      )
+
+      .sort(
+        ([a],[b]) =>
+          a.localeCompare(
+            b
+          )
+      );
+
+
+    for (
+      let index = 0;
+      index <
+      entries.length;
+      index++
+    ) {
+
+      const [
+        time,
+        value
+      ] =
+        entries[index];
+
+
+      const active =
+
+        field ===
+        "domesticHotWaterTemperature"
+
+          ? [
+              "comfort",
+              "eco"
+            ].includes(
+              value
+            )
+
+          : value != null;
+
+
+      if (
+        !active
+      ) {
+
+        continue;
+
+      }
+
+
+      const at =
+        base.getTime()
+
+        +
+
+        seconds(
+          time
+        )
+        *
+        1000;
+
+
+      const until =
+
+        index + 1 <
+        entries.length
+
+          ? base.getTime()
+
+            +
+
+            seconds(
+              entries[
+                index + 1
+              ][0]
+            )
+            *
+            1000
+
+          : base.getTime()
+            +
+            86400000;
+
+
+      const left =
+        Math.max(
+          start,
+          at
+        );
+
+
+      const right =
+        Math.min(
+          end,
+          until
+        );
+
+
+      if (
+        right >
+        left
+      ) {
+
+        ctx.save();
+
+        ctx.globalAlpha =
+          alpha;
+
+        ctx.fillStyle =
+          colour;
+
+
+        ctx.fillRect(
+
+          X(
+            left
+          ),
+
+          top,
+
+          X(
+            right
+          )
+
+          -
+
+          X(
+            left
+          ),
+
+          height
+
+        );
+
+
+        ctx.restore();
+
+      }
+
+    }
+
+  }
+
+}
+
+
+// =====================================================
+// DIAGNOSTIC
+// =====================================================
+
+function diagnostic() {
+
+  if (
+    !$("diag")
+      .classList
+      .contains(
+        "hidden"
+      )
+  ) {
+
+    $("diag")
+      .classList
+      .add(
+        "hidden"
+      );
+
+
+    $("diagBtn")
+      .textContent =
+        "Show latest stored sample";
+
+
+    return;
+
+  }
+
+
+  $("diag")
+    .textContent =
+      JSON.stringify(
+
+        samples.at(
+          -1
+        )
+
+        ||
+
+        null,
+
+        null,
+
+        2
+
+      );
+
+
+  $("diag")
+    .classList
+    .remove(
+      "hidden"
+    );
+
+
+  $("diagBtn")
+    .textContent =
+      "Hide latest stored sample";
+
+}
+
+
+// =====================================================
+// LOG OUT
+// =====================================================
+
+function logout() {
+
+  localStorage
+    .removeItem(
+      SK
+    );
+
+
+  $("dash")
+    .classList
+    .add(
+      "hidden"
+    );
+
+
+  $("login")
+    .classList
+    .remove(
+      "hidden"
+    );
+
+}
+
+
+// =====================================================
+// UI HELPERS
+// =====================================================
+
+function showDash() {
+
+  $("login")
+    .classList
+    .add(
+      "hidden"
+    );
+
+
+  $("dash")
+    .classList
+    .remove(
+      "hidden"
+    );
+
+
+  setTimeout(
+    draw,
+    0
+  );
+
+}
+
+
+function showLoginError(
+  text
+) {
+
+  $("loginErr")
+    .textContent =
+      text;
+
+
+  $("loginErr")
+    .classList
+    .remove(
+      "hidden"
+    );
+
+}
+
+
+function message(
+  text
+) {
+
+  $("msg")
+    .textContent =
+      text;
+
+
+  $("msg")
+    .classList
+    .remove(
+      "hidden"
+    );
+
+}
+
+
+// =====================================================
+// GENERAL HELPERS
+// =====================================================
+
+function finite(
+  value
+) {
+
+  return Number.isFinite(
+    value
+  );
+
+}
+
+
+function temperature(
+  value
+) {
+
+  return finite(
+    value
+  )
+
+    ? `${value.toFixed(1)} °C`
+
+    : "--";
+
+}
+
+
+function signed(
+  value
+) {
+
+  return `${
+    value >= 0
+      ? "+"
+      : ""
+  }${value.toFixed(1)}`;
+
+}
+
+
+function seconds(
+  time
+) {
+
+  const [
+    hours,
+    minutes,
+    seconds
+  ] =
+    time
+      .split(":")
+      .map(Number);
+
+
+  return (
+
+    hours *
+    3600
+
+    +
+
+    minutes *
+    60
+
+    +
+
+    (
+      seconds ||
+      0
+    )
+
+  );
+
+}
+
+
+function formatScheduleValue(
+  value
+) {
+
+  if (
+    value == null
+  ) {
+
+    return "--";
+
+  }
+
+
+  if (
+    typeof value ===
+    "number"
+  ) {
+
+    return `${value.toFixed(1)} °C`;
+
+  }
+
+
+  return String(
+    value
+  )
+  .replaceAll(
+    "_",
+    " "
+  )
+  .replace(
+    /\b\w/g,
+    character =>
+      character.toUpperCase()
+  );
+
+}
+
+
+function escapeHtml(
+  value
+) {
+
+  return String(
+    value
+  )
+  .replace(
+    /[&<>"']/g,
+    character => ({
+
+      "&":"&amp;",
+      "<":"&lt;",
+      ">":"&gt;",
+      "\"":"&quot;",
+      "'":"&#039;"
+
+    })[character]
+  );
+
+}
+
+
+function random() {
+
+  const array =
+    new Uint8Array(
+      24
+    );
+
+
+  crypto.getRandomValues(
+    array
+  );
+
+
+  return Array.from(
+    array,
+    byte =>
+
+      byte
+        .toString(
+          16
+        )
+        .padStart(
+          2,
+          "0"
+        )
+
+  ).join("");
+
+}
+
+
+async function json(
+  response
+) {
+
+  const text =
+    await response.text();
+
+
+  try {
+
+    return text
+
+      ? JSON.parse(
+          text
+        )
+
+      : {};
+
+  } catch {
+
+    return {
+      error:
+        text.slice(
+          0,
+          160
+        )
+    };
+
+  }
+
+}
+
+
+function errorText(
+  data,
+  fallback
+) {
+
+  return (
+
+    data?.error_description
+
+    ||
+
+    data?.message
+
+    ||
+
+    data?.error
+
+    ||
+
+    fallback
+
+  );
+
+}
+
+
+window.addEventListener(
+  "resize",
+  draw
+);
+
+
+// Start dashboard
+
+init();
+
+</script>
+
+</body>
+</html>
