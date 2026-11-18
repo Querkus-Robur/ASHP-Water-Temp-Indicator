@@ -236,6 +236,30 @@ button.secondary{
   color:var(--amber)
 }
 
+.date-row{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:.45rem;
+  margin-top:.8rem
+}
+.date-row label{
+  color:var(--muted);
+  font-size:.72rem;
+  font-weight:700;
+  text-transform:uppercase
+}
+.date-row input{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:9px;
+  color:var(--text);
+  font:inherit;
+  padding:.7rem;
+  width:100%
+}
+.cost-positive{color:var(--green)}
+.cost-negative{color:var(--red)}
+
 @media(max-width:360px){
   .grid{
     grid-template-columns:1fr
@@ -422,6 +446,51 @@ Whole-house kWh/30 min
 <div class="sub">
   Octopus smart-meter figures are whole-house electricity usage and
   may arrive with a reporting delay. They are not ASHP-only consumption.
+</div>
+
+</div>
+
+
+<div class="metric">
+
+<div class="label">
+  Daily electricity & tariff comparison
+</div>
+
+<div class="sub">
+  Select any date available from the Octopus consumption API. Bars show
+  whole-house half-hour electricity usage, coloured by the Cosy tariff period.
+</div>
+
+<div class="date-row">
+<label for="energyDate">Select date</label>
+<input id="energyDate" type="date">
+</div>
+
+<div class="chart">
+<canvas
+  id="dailyEnergyChart"
+  aria-label="Selected-day half-hour electricity usage">
+</canvas>
+</div>
+
+<div class="legend">
+<span class="key"><i class="sw" style="background:#60a5fa"></i>Cosy 17.15p</span>
+<span class="key"><i class="sw" style="background:#64748b"></i>Standard 34.95p</span>
+<span class="key"><i class="sw" style="background:#ef4444"></i>Peak 52.42p</span>
+</div>
+
+<div class="grid">
+<div class="item"><span>Energy used</span><b id="dailyKwh">-- kWh</b></div>
+<div class="item"><span>Intervals available</span><b id="dailyIntervals">--</b></div>
+<div class="item"><span>Cosy tariff cost</span><b id="cosyCost">--</b></div>
+<div class="item"><span>Fixed tariff cost</span><b id="fixedCost">--</b></div>
+<div class="item"><span>Cheaper tariff</span><b id="cheaperTariff">--</b></div>
+<div class="item"><span>Difference</span><b id="costDifference">--</b></div>
+</div>
+
+<div class="sub" id="dailyEnergyDetail">
+  Select a date to load half-hour consumption and pricing.
 </div>
 
 </div>
@@ -645,6 +714,9 @@ let samples =
 let electricity =
   [];
 
+let dailyElectricity =
+  [];
+
 
 // =====================================================
 // HTML ELEMENTS
@@ -675,6 +747,16 @@ $("diagBtn")
 $("logoutBtn")
   .onclick =
     logout;
+
+
+$("energyDate")
+  .addEventListener(
+    "change",
+    event =>
+      loadDailyElectricity(
+        event.target.value
+      )
+  );
 
 
 // =====================================================
@@ -1438,6 +1520,514 @@ function renderHistory() {
 
   draw();
 
+  initialiseEnergyDate();
+
+}
+
+
+// =====================================================
+// DAILY OCTOPUS ENERGY
+// =====================================================
+
+function londonDate(
+  value
+) {
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone:
+        "Europe/London",
+      year:
+        "numeric",
+      month:
+        "2-digit",
+      day:
+        "2-digit"
+    }
+  ).format(
+    new Date(
+      value
+    )
+  );
+}
+
+
+function initialiseEnergyDate() {
+  const input =
+    $("energyDate");
+
+  if (
+    input.value
+  ) {
+    return;
+  }
+
+  const latest =
+    electricity.at(
+      -1
+    );
+
+  const date =
+    latest
+      ? londonDate(
+          latest.intervalStart
+        )
+      : londonDate(
+          Date.now()
+        );
+
+  input.max =
+    londonDate(
+      Date.now()
+    );
+
+  input.value =
+    date;
+
+  loadDailyElectricity(
+    date
+  );
+}
+
+
+async function loadDailyElectricity(
+  date
+) {
+  if (
+    !date
+  ) {
+    return;
+  }
+
+  const session =
+    localStorage.getItem(
+      SK
+    );
+
+  if (
+    !session
+  ) {
+    message(
+      "Please log in with Daikin."
+    );
+    return;
+  }
+
+  $("dailyEnergyDetail")
+    .textContent =
+      "Loading Octopus half-hour data...";
+
+  try {
+    const response =
+      await fetch(
+        `${WORKER_URL}/octopus/day?date=${encodeURIComponent(date)}`,
+        {
+          cache:
+            "no-store",
+          headers: {
+            Authorization:
+              `Bearer ${session}`
+          }
+        }
+      );
+
+    const data =
+      await json(
+        response
+      );
+
+    if (
+      response.status ===
+      401
+    ) {
+      localStorage.removeItem(
+        SK
+      );
+      throw Error(
+        "Your dashboard session has expired. Please log in again."
+      );
+    }
+
+    if (
+      !response.ok
+    ) {
+      throw Error(
+        errorText(
+          data,
+          "Octopus daily data request failed"
+        )
+      );
+    }
+
+    dailyElectricity =
+      Array.isArray(
+        data.intervals
+      )
+        ? data.intervals
+        : [];
+
+    renderDailyElectricity(
+      data
+    );
+
+  } catch (
+    error
+  ) {
+    dailyElectricity =
+      [];
+
+    $("dailyEnergyDetail")
+      .textContent =
+        error.message;
+
+    drawDailyEnergyChart();
+  }
+}
+
+
+function renderDailyElectricity(
+  data
+) {
+  const pricing =
+    data.pricing ||
+    {};
+
+  $("dailyKwh")
+    .textContent =
+      `${Number(data.totalKwh || 0).toFixed(3)} kWh`;
+
+  $("dailyIntervals")
+    .textContent =
+      String(
+        data.intervals?.length ||
+        0
+      );
+
+  $("cosyCost")
+    .textContent =
+      formatPounds(
+        pricing.cosyTotalPence
+      );
+
+  $("fixedCost")
+    .textContent =
+      formatPounds(
+        pricing.fixedTotalPence
+      );
+
+  const difference =
+    Number(
+      pricing.differencePence
+    );
+
+  const cosyCheaper =
+    difference > 0;
+
+  const fixedCheaper =
+    difference < 0;
+
+  $("cheaperTariff")
+    .textContent =
+      cosyCheaper
+        ? "Cosy"
+        : fixedCheaper
+          ? "Fixed"
+          : "Equal";
+
+  $("costDifference")
+    .textContent =
+      formatPounds(
+        Math.abs(
+          difference
+        )
+      );
+
+  $("costDifference")
+    .className =
+      difference === 0
+        ? ""
+        : "cost-positive";
+
+  const coverage =
+    data.completeDay
+      ? "Complete day"
+      : "Partial day / readings still pending";
+
+  $("dailyEnergyDetail")
+    .textContent =
+      `${coverage}. Costs include standing charge: Cosy 41.22p/day; Fixed 39.52p/day. ` +
+      `Cosy energy split: ${Number(pricing.cosyKwh || 0).toFixed(3)} kWh Cosy, ` +
+      `${Number(pricing.standardKwh || 0).toFixed(3)} kWh standard and ` +
+      `${Number(pricing.peakKwh || 0).toFixed(3)} kWh peak.`;
+
+  drawDailyEnergyChart();
+}
+
+
+function formatPounds(
+  pence
+) {
+  const value =
+    Number(
+      pence
+    );
+
+  return Number.isFinite(
+    value
+  )
+    ? `£${(value / 100).toFixed(2)}`
+    : "--";
+}
+
+
+function drawDailyEnergyChart() {
+  const canvas =
+    $("dailyEnergyChart");
+
+  const rect =
+    canvas.getBoundingClientRect();
+
+  const dpr =
+    window.devicePixelRatio ||
+    1;
+
+  const width =
+    Math.max(
+      300,
+      rect.width
+    );
+
+  const height =
+    310;
+
+  canvas.width =
+    width *
+    dpr;
+
+  canvas.height =
+    height *
+    dpr;
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+  ctx.scale(
+    dpr,
+    dpr
+  );
+
+  ctx.clearRect(
+    0,
+    0,
+    width,
+    height
+  );
+
+  const pad = {
+    l:
+      38,
+    r:
+      8,
+    t:
+      12,
+    b:
+      30
+  };
+
+  const plotWidth =
+    width -
+    pad.l -
+    pad.r;
+
+  const plotHeight =
+    height -
+    pad.t -
+    pad.b;
+
+  const max =
+    Math.max(
+      0.25,
+      ...dailyElectricity.map(
+        item =>
+          Number(
+            item.consumption
+          )
+      )
+    );
+
+  const X =
+    hour =>
+      pad.l +
+      hour / 24 *
+      plotWidth;
+
+  const Y =
+    value =>
+      pad.t +
+      plotHeight -
+      value / max *
+      plotHeight;
+
+  ctx.strokeStyle =
+    "#e2e8f0";
+
+  ctx.fillStyle =
+    "#64748b";
+
+  ctx.font =
+    "10px sans-serif";
+
+  for (
+    let i = 0;
+    i <= 4;
+    i++
+  ) {
+    const value =
+      max *
+      i / 4;
+
+    const y =
+      Y(
+        value
+      );
+
+    ctx.beginPath();
+    ctx.moveTo(
+      pad.l,
+      y
+    );
+    ctx.lineTo(
+      width -
+      pad.r,
+      y
+    );
+    ctx.stroke();
+
+    ctx.textAlign =
+      "right";
+
+    ctx.fillText(
+      value.toFixed(
+        2
+      ),
+      pad.l -
+      4,
+      y +
+      3
+    );
+  }
+
+  for (
+    let hour = 0;
+    hour <= 24;
+    hour += 3
+  ) {
+    ctx.textAlign =
+      "center";
+
+    ctx.fillText(
+      String(hour).padStart(
+        2,
+        "0"
+      ),
+      X(
+        hour
+      ),
+      height -
+      8
+    );
+  }
+
+  for (
+    const item
+    of dailyElectricity
+  ) {
+    const startHour =
+      Number(
+        item.localStartHour
+      );
+
+    const durationHours =
+      Number(
+        item.durationMinutes ||
+        30
+      ) / 60;
+
+    const consumption =
+      Number(
+        item.consumption
+      );
+
+    if (
+      !Number.isFinite(
+        startHour
+      )
+      ||
+      !Number.isFinite(
+        consumption
+      )
+    ) {
+      continue;
+    }
+
+    const colour =
+      item.cosyBand ===
+      "cosy"
+        ? "#60a5fa"
+        : item.cosyBand ===
+          "peak"
+          ? "#ef4444"
+          : "#64748b";
+
+    ctx.fillStyle =
+      colour;
+
+    ctx.fillRect(
+      X(
+        startHour
+      ) +
+      1,
+      Y(
+        consumption
+      ),
+      Math.max(
+        2,
+        X(
+          startHour +
+          durationHours
+        ) -
+        X(
+          startHour
+        ) -
+        2
+      ),
+      pad.t +
+      plotHeight -
+      Y(
+        consumption
+      )
+    );
+  }
+
+  if (
+    !dailyElectricity.length
+  ) {
+    ctx.textAlign =
+      "center";
+
+    ctx.fillStyle =
+      "#64748b";
+
+    ctx.fillText(
+      "No Octopus readings available for this date",
+      pad.l +
+      plotWidth / 2,
+      pad.t +
+      plotHeight / 2
+    );
+  }
 }
 
 
@@ -3759,7 +4349,10 @@ function errorText(
 
 window.addEventListener(
   "resize",
-  draw
+  () => {
+    draw();
+    drawDailyEnergyChart();
+  }
 );
 
 
