@@ -248,7 +248,8 @@ button.secondary{
   font-weight:700;
   text-transform:uppercase
 }
-.date-row input{
+.date-row input,
+.date-row select{
   background:#fff;
   border:1px solid var(--line);
   border-radius:9px;
@@ -496,6 +497,50 @@ Whole-house kWh/30 min
 </div>
 
 
+<div class="metric">
+
+<div class="label">
+  Historical tariff comparison
+</div>
+
+<div class="sub">
+  Select a start and end date. Only dates with a complete set of
+  Octopus half-hour readings are available.
+</div>
+
+<div class="grid">
+<div class="item">
+<span>Start date</span>
+<select id="comparisonStart"></select>
+</div>
+<div class="item">
+<span>End date</span>
+<select id="comparisonEnd"></select>
+</div>
+</div>
+
+<button id="compareTariffsBtn" type="button">
+  Compare tariffs
+</button>
+
+<div class="grid">
+<div class="item"><span>Complete days</span><b id="comparisonDays">--</b></div>
+<div class="item"><span>Energy used</span><b id="comparisonKwh">-- kWh</b></div>
+<div class="item"><span>Cosy total</span><b id="comparisonCosyTotal">--</b></div>
+<div class="item"><span>Cosy average/day</span><b id="comparisonCosyAverage">--</b></div>
+<div class="item"><span>Fixed total</span><b id="comparisonFixedTotal">--</b></div>
+<div class="item"><span>Fixed average/day</span><b id="comparisonFixedAverage">--</b></div>
+<div class="item"><span>Cheaper tariff</span><b id="comparisonCheaper">--</b></div>
+<div class="item"><span>Total difference</span><b id="comparisonDifference">--</b></div>
+</div>
+
+<div class="sub" id="comparisonDetail">
+  Loading dates with complete data...
+</div>
+
+</div>
+
+
 <div class="metric heat">
 
 <div class="label">
@@ -717,6 +762,9 @@ let electricity =
 let dailyElectricity =
   [];
 
+let completeEnergyDates =
+  [];
+
 
 // =====================================================
 // HTML ELEMENTS
@@ -756,6 +804,13 @@ $("energyDate")
       loadDailyElectricity(
         event.target.value
       )
+  );
+
+
+$("compareTariffsBtn")
+  .addEventListener(
+    "click",
+    compareTariffs
   );
 
 
@@ -1522,6 +1577,259 @@ function renderHistory() {
 
   initialiseEnergyDate();
 
+  initialiseComparisonDates();
+
+}
+
+
+// =====================================================
+// HISTORICAL TARIFF COMPARISON
+// =====================================================
+
+async function initialiseComparisonDates() {
+  if (
+    completeEnergyDates.length
+  ) {
+    return;
+  }
+
+  const session =
+    localStorage.getItem(
+      SK
+    );
+
+  if (
+    !session
+  ) {
+    return;
+  }
+
+  try {
+    const response =
+      await fetch(
+        `${WORKER_URL}/octopus/complete-dates`,
+        {
+          cache:
+            "no-store",
+          headers: {
+            Authorization:
+              `Bearer ${session}`
+          }
+        }
+      );
+
+    const data =
+      await json(
+        response
+      );
+
+    if (
+      !response.ok
+    ) {
+      throw Error(
+        errorText(
+          data,
+          "Unable to load complete Octopus dates"
+        )
+      );
+    }
+
+    completeEnergyDates =
+      Array.isArray(
+        data.dates
+      )
+        ? data.dates
+        : [];
+
+    populateComparisonSelect(
+      $("comparisonStart")
+    );
+
+    populateComparisonSelect(
+      $("comparisonEnd")
+    );
+
+    if (
+      completeEnergyDates.length
+    ) {
+      $("comparisonStart").value =
+        completeEnergyDates[0];
+
+      $("comparisonEnd").value =
+        completeEnergyDates.at(-1);
+
+      $("comparisonDetail").textContent =
+        `${completeEnergyDates.length} complete dates available from ` +
+        `${formatDateLabel(completeEnergyDates[0])} to ` +
+        `${formatDateLabel(completeEnergyDates.at(-1))}.`;
+
+      await compareTariffs();
+    } else {
+      $("comparisonDetail").textContent =
+        "No complete Octopus days are currently available.";
+    }
+
+  } catch (
+    error
+  ) {
+    $("comparisonDetail").textContent =
+      error.message;
+  }
+}
+
+
+function populateComparisonSelect(
+  select
+) {
+  select.innerHTML =
+    completeEnergyDates
+      .map(
+        date =>
+          `<option value="${date}">${formatDateLabel(date)}</option>`
+      )
+      .join(
+        ""
+      );
+}
+
+
+function formatDateLabel(
+  date
+) {
+  return new Date(
+    `${date}T12:00:00`
+  ).toLocaleDateString(
+    "en-GB",
+    {
+      weekday:
+        "short",
+      day:
+        "2-digit",
+      month:
+        "short",
+      year:
+        "numeric"
+    }
+  );
+}
+
+
+async function compareTariffs() {
+  const startDate =
+    $("comparisonStart").value;
+
+  const endDate =
+    $("comparisonEnd").value;
+
+  if (
+    !startDate
+    ||
+    !endDate
+  ) {
+    return;
+  }
+
+  if (
+    startDate >
+    endDate
+  ) {
+    $("comparisonDetail").textContent =
+      "The start date must not be after the end date.";
+    return;
+  }
+
+  const session =
+    localStorage.getItem(
+      SK
+    );
+
+  $("compareTariffsBtn").disabled =
+    true;
+
+  $("comparisonDetail").textContent =
+    "Calculating comparison across complete days...";
+
+  try {
+    const response =
+      await fetch(
+        `${WORKER_URL}/octopus/compare?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
+        {
+          cache:
+            "no-store",
+          headers: {
+            Authorization:
+              `Bearer ${session}`
+          }
+        }
+      );
+
+    const data =
+      await json(
+        response
+      );
+
+    if (
+      !response.ok
+    ) {
+      throw Error(
+        errorText(
+          data,
+          "Tariff comparison failed"
+        )
+      );
+    }
+
+    $("comparisonDays").textContent =
+      String(
+        data.completeDays
+      );
+
+    $("comparisonKwh").textContent =
+      `${Number(data.totalKwh).toFixed(2)} kWh`;
+
+    $("comparisonCosyTotal").textContent =
+      formatPounds(
+        data.cosy.totalPence
+      );
+
+    $("comparisonCosyAverage").textContent =
+      `${formatPounds(data.cosy.averagePencePerDay)}/day`;
+
+    $("comparisonFixedTotal").textContent =
+      formatPounds(
+        data.fixed.totalPence
+      );
+
+    $("comparisonFixedAverage").textContent =
+      `${formatPounds(data.fixed.averagePencePerDay)}/day`;
+
+    $("comparisonCheaper").textContent =
+      data.cheaperTariff;
+
+    $("comparisonDifference").textContent =
+      formatPounds(
+        Math.abs(
+          Number(
+            data.differencePence
+          )
+        )
+      );
+
+    $("comparisonDetail").textContent =
+      `Comparison uses ${data.completeDays} complete days from ` +
+      `${formatDateLabel(data.actualStartDate)} to ` +
+      `${formatDateLabel(data.actualEndDate)} and includes each tariff's daily standing charge.`;
+
+  } catch (
+    error
+  ) {
+    $("comparisonDetail").textContent =
+      error.message;
+
+  } finally {
+    $("compareTariffsBtn").disabled =
+      false;
+  }
 }
 
 
