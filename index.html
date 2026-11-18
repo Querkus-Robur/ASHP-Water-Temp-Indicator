@@ -183,7 +183,7 @@ button.secondary{
 .chart canvas{
   display:block;
   width:100%;
-  height:290px
+  height:310px
 }
 
 .legend{
@@ -255,7 +255,7 @@ button.secondary{
 <h1>Daikin Altherma Status</h1>
 
 <p class="subtitle">
-  Cloud-collected 24-hour water-temperature and schedule monitor
+  Cloud-collected temperature, schedule and whole-house energy monitor
 </p>
 
 
@@ -323,9 +323,9 @@ button.secondary{
 </div>
 
 <div class="sub">
-  The chart shows the last 24 hours of measured temperatures
-  and the next 24 hours of scheduled room targets.
-  Amber shading shows DHW Comfort/Eco periods.
+  The chart shows the last 24 hours of measured temperatures and
+  whole-house half-hourly electricity, plus the next 24 hours of
+  scheduled room targets. Amber shading shows DHW Comfort/Eco periods.
 </div>
 
 <div class="chart">
@@ -380,6 +380,14 @@ Room target
 DHW Comfort/Eco
 </span>
 
+<span class="key">
+<i
+  class="sw"
+  style="background:#334155">
+</i>
+Whole-house kWh/30 min
+</span>
+
 </div>
 
 
@@ -395,6 +403,25 @@ DHW Comfort/Eco
 <b id="latestCollect">--</b>
 </div>
 
+</div>
+
+<div class="grid">
+
+<div class="item">
+<span>Latest 30 min</span>
+<b id="energyLatest">-- kWh</b>
+</div>
+
+<div class="item">
+<span>Last 24 hours</span>
+<b id="energy24">-- kWh</b>
+</div>
+
+</div>
+
+<div class="sub">
+  Octopus smart-meter figures are whole-house electricity usage and
+  may arrive with a reporting delay. They are not ASHP-only consumption.
 </div>
 
 </div>
@@ -613,6 +640,9 @@ const FLOW_RISE =
 
 
 let samples =
+  [];
+
+let electricity =
   [];
 
 
@@ -983,6 +1013,16 @@ async function loadHistory() {
         : [];
 
 
+    electricity =
+      Array.isArray(
+        data.electricity
+      )
+
+        ? data.electricity
+
+        : [];
+
+
     renderHistory();
 
 
@@ -1318,6 +1358,72 @@ function renderHistory() {
             "2-digit"
         }
       );
+
+
+  const recentEnergy =
+    electricity.filter(
+      item =>
+        new Date(
+          item.intervalEnd
+        ).getTime()
+
+        >=
+
+        Date.now() -
+        86400000
+    );
+
+
+  const energyTotal24 =
+    recentEnergy.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        (
+          Number(
+            item.consumption
+          )
+          ||
+          0
+        ),
+      0
+    );
+
+
+  const latestEnergy =
+    electricity.at(
+      -1
+    );
+
+
+  $("energyLatest")
+    .textContent =
+      latestEnergy
+
+        ? `${
+            Number(
+              latestEnergy.consumption
+            ).toFixed(
+              3
+            )
+          } kWh`
+
+        : "-- kWh";
+
+
+  $("energy24")
+    .textContent =
+      recentEnergy.length
+
+        ? `${
+            energyTotal24.toFixed(
+              2
+            )
+          } kWh`
+
+        : "-- kWh";
 
 
   $("updated")
@@ -2372,6 +2478,158 @@ function draw() {
     10
 
   );
+
+
+  // Whole-house half-hourly electricity bars.
+  // These use an independent scale and occupy the lower third
+  // of the plot so the temperature scale remains unchanged.
+
+  const energyRecent =
+    electricity.filter(
+      item => {
+
+        const intervalEnd =
+          new Date(
+            item.intervalEnd
+          ).getTime();
+
+
+        return (
+          intervalEnd >=
+            start
+
+          &&
+
+          intervalEnd <=
+            now
+
+          &&
+
+          finite(
+            Number(
+              item.consumption
+            )
+          )
+        );
+
+      }
+    );
+
+
+  const maxEnergy =
+    Math.max(
+      0.25,
+      ...energyRecent.map(
+        item =>
+          Number(
+            item.consumption
+          )
+      )
+    );
+
+
+  ctx.fillStyle =
+    "#334155";
+
+  ctx.globalAlpha =
+    0.35;
+
+
+  for (
+    const item
+    of energyRecent
+  ) {
+
+    const intervalStart =
+      Math.max(
+        start,
+        new Date(
+          item.intervalStart
+        ).getTime()
+      );
+
+
+    const intervalEnd =
+      Math.min(
+        now,
+        new Date(
+          item.intervalEnd
+        ).getTime()
+      );
+
+
+    const consumption =
+      Number(
+        item.consumption
+      );
+
+
+    const barHeight =
+      consumption
+      /
+      maxEnergy
+      *
+      (
+        plotHeight
+        *
+        0.34
+      );
+
+
+    ctx.fillRect(
+      X(
+        intervalStart
+      ),
+      pad.t
+      +
+      plotHeight
+      -
+      barHeight,
+      Math.max(
+        1,
+        X(
+          intervalEnd
+        )
+        -
+        X(
+          intervalStart
+        )
+        -
+        1
+      ),
+      barHeight
+    );
+
+  }
+
+
+  ctx.globalAlpha =
+    1;
+
+
+  if (
+    energyRecent.length
+  ) {
+
+    ctx.fillStyle =
+      "#475569";
+
+    ctx.textAlign =
+      "right";
+
+    ctx.fillText(
+      `${
+        maxEnergy.toFixed(
+          2
+        )
+      } kWh/30m max`,
+      width -
+      pad.r,
+      pad.t +
+      10
+    );
+
+  }
 
 
   // Historical measured values
