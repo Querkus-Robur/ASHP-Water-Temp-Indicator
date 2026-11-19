@@ -236,6 +236,31 @@ button.secondary{
   color:var(--amber)
 }
 
+.history-scroll{
+  overflow-x:auto;
+  overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-x;
+  cursor:grab;
+  scroll-behavior:smooth
+}
+.history-scroll.dragging{
+  cursor:grabbing;
+  user-select:none
+}
+.history-inner{
+  min-width:100%;
+  height:310px
+}
+.history-inner canvas{
+  height:310px
+}
+.history-hint{
+  color:var(--muted);
+  font-size:.72rem;
+  margin-top:.4rem;
+  text-align:center
+}
 .date-row{
   display:grid;
   grid-template-columns:1fr;
@@ -348,20 +373,23 @@ button.secondary{
 </div>
 
 <div class="sub">
-  The chart shows the last 24 hours of measured temperatures and
-  whole-house half-hourly electricity, plus the next 24 hours of
-  scheduled room targets. Amber shading shows DHW Comfort/Eco periods.
+  The chart shows the previous 7 days of measured temperatures and
+  whole-house half-hourly electricity, plus 1 day of scheduled room targets.
+  Swipe or drag left and right to move through time. Amber shading shows DHW Comfort/Eco periods.
 </div>
 
-<div class="chart">
+<div class="chart history-scroll" id="historyScroll">
 
+<div class="history-inner" id="historyInner">
 <canvas
   id="chart"
   aria-label="ASHP temperatures and heating schedules">
 </canvas>
+</div>
 
 </div>
 
+<div class="history-hint">← Swipe / drag to view 7 days history and tomorrow's schedule →</div>
 
 <div class="legend">
 
@@ -812,6 +840,9 @@ $("compareTariffsBtn")
     "click",
     compareTariffs
   );
+
+
+enableHistoryDrag();
 
 
 // =====================================================
@@ -2891,273 +2922,181 @@ function draw() {
   const canvas =
     $("chart");
 
+  const scroller =
+    $("historyScroll");
+
+  const inner =
+    $("historyInner");
 
   const history =
     samples.filter(
       sample =>
-
-        finite(
-          sample.lwt
-        )
-
+        finite(sample.lwt)
         ||
-
-        finite(
-          sample.tank
-        )
-
+        finite(sample.tank)
         ||
-
-        finite(
-          sample.room
-        )
+        finite(sample.room)
     );
-
-
-  const rect =
-    canvas
-      .getBoundingClientRect();
-
 
   const dpr =
     window.devicePixelRatio
     ||
     1;
 
+  const viewportWidth =
+    Math.max(
+      300,
+      scroller.clientWidth
+    );
+
+  // Each 24-hour period occupies roughly one viewport width.
+  // Seven historical days + one scheduled day = eight panels.
+  const daysPast =
+    7;
+
+  const daysFuture =
+    1;
+
+  const totalDays =
+    daysPast +
+    daysFuture;
 
   const width =
     Math.max(
-      300,
-      rect.width
+      viewportWidth * totalDays,
+      2400
     );
 
-
   const height =
-    290;
+    310;
 
+  inner.style.width =
+    `${width}px`;
+
+  canvas.style.width =
+    `${width}px`;
 
   canvas.width =
-    width *
-    dpr;
-
+    Math.round(
+      width * dpr
+    );
 
   canvas.height =
-    height *
-    dpr;
-
+    Math.round(
+      height * dpr
+    );
 
   const ctx =
     canvas.getContext(
       "2d"
     );
 
-
-  ctx.scale(
+  ctx.setTransform(
     dpr,
-    dpr
+    0,
+    0,
+    dpr,
+    0,
+    0
   );
 
-
   const pad = {
-    l:38,
-    r:8,
-    t:10,
-    b:28
+    l:44,
+    r:12,
+    t:12,
+    b:32
   };
-
 
   const plotWidth =
     width -
     pad.l -
     pad.r;
 
-
   const plotHeight =
     height -
     pad.t -
     pad.b;
 
-
   const now =
     Date.now();
 
-
   const start =
     now -
-    86400000;
-
+    daysPast * 86400000;
 
   const end =
     now +
-    86400000;
-
+    daysFuture * 86400000;
 
   const values =
     [];
 
-
   history.forEach(
     sample => {
-
       [
         sample.lwt,
         sample.tank,
         sample.room
-      ]
-      .forEach(
+      ].forEach(
         value => {
-
-          if (
-            finite(
-              value
-            )
-          ) {
-
-            values.push(
-              value
-            );
-
+          if (finite(value)) {
+            values.push(value);
           }
-
         }
       );
-
     }
   );
 
-
   const latest =
-    history.at(
-      -1
-    );
+    history.at(-1);
 
-
-  if (
-    latest?.heatSchedule
-  ) {
-
+  if (latest?.heatSchedule) {
     scheduledTargetValues(
-
-      latest
-        .heatSchedule,
-
+      latest.heatSchedule,
       now,
       end
-
-    )
-    .forEach(
+    ).forEach(
       point => {
-
-        if (
-          finite(
-            point.value
-          )
-        ) {
-
-          values.push(
-            point.value
-          );
-
+        if (finite(point.value)) {
+          values.push(point.value);
         }
-
       }
     );
-
   }
-
 
   let low =
     values.length
-
-      ? Math.floor(
-          (
-            Math.min(
-              ...values
-            )
-            -
-            3
-          )
-          /
-          5
-        )
-        *
-        5
-
+      ? Math.floor((Math.min(...values) - 3) / 5) * 5
       : 15;
-
 
   let high =
     values.length
-
-      ? Math.ceil(
-          (
-            Math.max(
-              ...values
-            )
-            +
-            3
-          )
-          /
-          5
-        )
-        *
-        5
-
+      ? Math.ceil((Math.max(...values) + 3) / 5) * 5
       : 60;
 
-
-  if (
-    high <= low
-  ) {
-
-    high =
-      low +
-      10;
-
+  if (high <= low) {
+    high = low + 10;
   }
-
 
   const X =
     time =>
-
       pad.l
-
       +
-
-      (
-        time -
-        start
-      )
+      (time - start)
       /
-      (
-        end -
-        start
-      )
-
+      (end - start)
       *
       plotWidth;
 
-
   const Y =
     value =>
-
       pad.t
-
       +
-
-      (
-        high -
-        value
-      )
+      (high - value)
       /
-      (
-        high -
-        low
-      )
-
+      (high - low)
       *
       plotHeight;
-
 
   ctx.clearRect(
     0,
@@ -3166,467 +3105,300 @@ function draw() {
     height
   );
 
-
-  // DHW scheduled periods
-
-  if (
-    latest?.dhwSchedule
-  ) {
-
+  if (latest?.dhwSchedule) {
     drawScheduleBands(
-
       ctx,
-
       latest.dhwSchedule,
-
       start,
       end,
-
       X,
-
       pad.t,
       plotHeight,
-
       "#f59e0b",
-      .16,
-
+      0.16,
       "domesticHotWaterTemperature"
-
     );
-
   }
 
+  // Day boundaries, date labels and six-hour subdivisions.
+  const firstMidnight =
+    new Date(start);
 
-  // Horizontal grid
+  firstMidnight.setHours(
+    0,
+    0,
+    0,
+    0
+  );
 
+  ctx.font =
+    "10px sans-serif";
+
+  for (
+    let day = new Date(firstMidnight);
+    day.getTime() <= end + 86400000;
+    day.setDate(day.getDate() + 1)
+  ) {
+    const dayTime =
+      day.getTime();
+
+    if (dayTime >= start && dayTime <= end) {
+      const x = X(dayTime);
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x,pad.t);
+      ctx.lineTo(x,pad.t + plotHeight);
+      ctx.stroke();
+      ctx.fillStyle = "#475569";
+      ctx.textAlign = "left";
+      ctx.fillText(
+        day.toLocaleDateString(
+          [],
+          {
+            weekday:"short",
+            day:"2-digit",
+            month:"short"
+          }
+        ),
+        x + 4,
+        height - 17
+      );
+    }
+
+    for (const hour of [6,12,18]) {
+      const tick =
+        new Date(day);
+      tick.setHours(hour,0,0,0);
+      const tickTime = tick.getTime();
+      if (tickTime >= start && tickTime <= end) {
+        const x = X(tickTime);
+        ctx.strokeStyle = "#eef2f7";
+        ctx.beginPath();
+        ctx.moveTo(x,pad.t);
+        ctx.lineTo(x,pad.t + plotHeight);
+        ctx.stroke();
+        ctx.fillStyle = "#94a3b8";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          `${String(hour).padStart(2,"0")}:00`,
+          x,
+          height - 5
+        );
+      }
+    }
+  }
+
+  // Horizontal temperature grid.
   ctx.strokeStyle =
     "#e2e8f0";
 
   ctx.fillStyle =
     "#64748b";
 
-  ctx.font =
-    "10px sans-serif";
-
-
   for (
     let i = 0;
     i <= 4;
     i++
   ) {
-
     const value =
-      low
-
-      +
-
-      (
-        high -
-        low
-      )
-
-      *
-      i
-      /
-      4;
-
+      low +
+      (high - low) * i / 4;
 
     const y =
-      Y(
-        value
-      );
-
+      Y(value);
 
     ctx.beginPath();
-
-    ctx.moveTo(
-      pad.l,
-      y
-    );
-
-    ctx.lineTo(
-      width -
-      pad.r,
-      y
-    );
-
+    ctx.moveTo(pad.l,y);
+    ctx.lineTo(width - pad.r,y);
     ctx.stroke();
-
 
     ctx.textAlign =
       "right";
 
-
     ctx.fillText(
-
       `${value.toFixed(0)}°`,
-
-      pad.l -
-      4,
-
-      y +
-      3
-
+      pad.l - 5,
+      y + 3
     );
-
   }
 
-
-  // Time axis
-
-  for (
-    let i = 0;
-    i <= 4;
-    i++
-  ) {
-
-    const time =
-      start
-
-      +
-
-      (
-        end -
-        start
-      )
-
-      *
-      i
-      /
-      4;
-
-
-    ctx.textAlign =
-      "center";
-
-
-    ctx.fillText(
-
-      new Date(
-        time
-      )
-      .toLocaleTimeString(
-        [],
-        {
-          hour:
-            "2-digit",
-
-          minute:
-            "2-digit"
-        }
-      ),
-
-      X(
-        time
-      ),
-
-      height -
-      8
-
-    );
-
-  }
-
-
-  // NOW line
-
+  // Current-time divider.
   ctx.strokeStyle =
-    "#94a3b8";
+    "#64748b";
 
   ctx.setLineDash(
-    [4,4]
+    [5,4]
   );
-
 
   ctx.beginPath();
-
-  ctx.moveTo(
-    X(now),
-    pad.t
-  );
-
-  ctx.lineTo(
-    X(now),
-    pad.t +
-    plotHeight
-  );
-
+  ctx.moveTo(X(now),pad.t);
+  ctx.lineTo(X(now),pad.t + plotHeight);
   ctx.stroke();
-
-
-  ctx.setLineDash(
-    []
-  );
-
+  ctx.setLineDash([]);
 
   ctx.fillStyle =
-    "#64748b";
+    "#475569";
 
   ctx.textAlign =
     "center";
 
-
   ctx.fillText(
-
     "Now",
-
     X(now),
-
-    pad.t +
-    10
-
+    pad.t + 10
   );
 
-
   // Whole-house half-hourly electricity bars.
-  // These use an independent scale and occupy the lower third
-  // of the plot so the temperature scale remains unchanged.
-
   const energyRecent =
     electricity.filter(
       item => {
-
-        const intervalEnd =
-          new Date(
-            item.intervalEnd
-          ).getTime();
-
-
-        return (
-          intervalEnd >=
-            start
-
-          &&
-
-          intervalEnd <=
-            now
-
-          &&
-
-          finite(
-            Number(
-              item.consumption
-            )
-          )
-        );
-
+        const time = new Date(item.intervalEnd).getTime();
+        return time >= start && time <= now && finite(Number(item.consumption));
       }
     );
-
 
   const maxEnergy =
     Math.max(
       0.25,
-      ...energyRecent.map(
-        item =>
-          Number(
-            item.consumption
-          )
-      )
+      ...energyRecent.map(item => Number(item.consumption))
     );
-
 
   ctx.fillStyle =
     "#334155";
 
   ctx.globalAlpha =
-    0.35;
+    0.28;
 
-
-  for (
-    const item
-    of energyRecent
-  ) {
-
-    const intervalStart =
-      Math.max(
-        start,
-        new Date(
-          item.intervalStart
-        ).getTime()
-      );
-
-
-    const intervalEnd =
-      Math.min(
-        now,
-        new Date(
-          item.intervalEnd
-        ).getTime()
-      );
-
-
-    const consumption =
-      Number(
-        item.consumption
-      );
-
-
-    const barHeight =
-      consumption
-      /
-      maxEnergy
-      *
-      (
-        plotHeight
-        *
-        0.34
-      );
-
-
+  for (const item of energyRecent) {
+    const left = Math.max(start,new Date(item.intervalStart).getTime());
+    const right = Math.min(now,new Date(item.intervalEnd).getTime());
+    const barHeight = Number(item.consumption) / maxEnergy * (plotHeight * 0.30);
     ctx.fillRect(
-      X(
-        intervalStart
-      ),
-      pad.t
-      +
-      plotHeight
-      -
-      barHeight,
-      Math.max(
-        1,
-        X(
-          intervalEnd
-        )
-        -
-        X(
-          intervalStart
-        )
-        -
-        1
-      ),
+      X(left),
+      pad.t + plotHeight - barHeight,
+      Math.max(1,X(right) - X(left) - 1),
       barHeight
     );
-
   }
-
 
   ctx.globalAlpha =
     1;
 
-
-  if (
-    energyRecent.length
-  ) {
-
-    ctx.fillStyle =
-      "#475569";
-
-    ctx.textAlign =
-      "right";
-
-    ctx.fillText(
-      `${
-        maxEnergy.toFixed(
-          2
-        )
-      } kWh/30m max`,
-      width -
-      pad.r,
-      pad.t +
-      10
-    );
-
-  }
-
-
-  // Historical measured values
-
   const recent =
     history.filter(
       sample =>
-
-        new Date(
-          sample.timestamp
-        ).getTime()
-
-        >=
-
-        start
+        new Date(sample.timestamp).getTime() >= start
+        &&
+        new Date(sample.timestamp).getTime() <= now
     );
 
+  drawSeries(ctx,recent,"lwt","#0077c8",X,Y);
+  drawSeries(ctx,recent,"tank","#8b5cf6",X,Y);
+  drawSeries(ctx,recent,"room","#16a34a",X,Y);
 
-  drawSeries(
-    ctx,
-    recent,
-    "lwt",
-    "#0077c8",
-    X,
-    Y
-  );
-
-
-  drawSeries(
-    ctx,
-    recent,
-    "tank",
-    "#8b5cf6",
-    X,
-    Y
-  );
-
-
-  drawSeries(
-    ctx,
-    recent,
-    "room",
-    "#16a34a",
-    X,
-    Y
-  );
-
-
-  // Future room target schedule
-
-  if (
-    latest?.heatSchedule
-  ) {
-
+  if (latest?.heatSchedule) {
     drawTargetSchedule(
-
       ctx,
-
-      latest
-        .heatSchedule,
-
+      latest.heatSchedule,
       now,
       end,
-
       X,
       Y
-
     );
-
   }
 
-
-  if (
-    !history.length
-  ) {
-
-    ctx.fillStyle =
-      "#64748b";
-
-    ctx.textAlign =
-      "center";
-
-
+  if (!history.length) {
+    ctx.fillStyle = "#64748b";
+    ctx.textAlign = "center";
     ctx.fillText(
-
       "Waiting for Cloudflare samples",
-
-      pad.l +
-      plotWidth /
-      2,
-
-      pad.t +
-      plotHeight /
-      2
-
+      pad.l + plotWidth / 2,
+      pad.t + plotHeight / 2
     );
-
   }
 
+  // On first render, position the viewport with roughly the last
+  // historical day and the future schedule visible. User scrolling
+  // position is preserved on subsequent redraws.
+  if (!scroller.dataset.initialised) {
+    scroller.dataset.initialised = "true";
+    requestAnimationFrame(
+      () => {
+        const nowX = X(now);
+        scroller.scrollLeft = Math.max(
+          0,
+          nowX - viewportWidth * 0.72
+        );
+      }
+    );
+  }
+
+}
+
+
+function enableHistoryDrag() {
+  const scroller =
+    $("historyScroll");
+
+  if (!scroller || scroller.dataset.dragReady) {
+    return;
+  }
+
+  scroller.dataset.dragReady =
+    "true";
+
+  let dragging =
+    false;
+
+  let startX =
+    0;
+
+  let startScroll =
+    0;
+
+  scroller.addEventListener(
+    "pointerdown",
+    event => {
+      dragging = true;
+      startX = event.clientX;
+      startScroll = scroller.scrollLeft;
+      scroller.classList.add("dragging");
+      scroller.setPointerCapture(event.pointerId);
+    }
+  );
+
+  scroller.addEventListener(
+    "pointermove",
+    event => {
+      if (!dragging) {
+        return;
+      }
+      scroller.scrollLeft =
+        startScroll -
+        (event.clientX - startX);
+    }
+  );
+
+  const stop =
+    event => {
+      if (!dragging) {
+        return;
+      }
+      dragging = false;
+      scroller.classList.remove("dragging");
+      if (event.pointerId !== undefined && scroller.hasPointerCapture(event.pointerId)) {
+        scroller.releasePointerCapture(event.pointerId);
+      }
+    };
+
+  scroller.addEventListener("pointerup",stop);
+  scroller.addEventListener("pointercancel",stop);
+  scroller.addEventListener("pointerleave",event => {
+    if (dragging && event.buttons === 0) {
+      stop(event);
+    }
+  });
 }
 
 
