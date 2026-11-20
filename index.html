@@ -237,6 +237,7 @@ button.secondary{
 }
 
 .history-scroll{
+  position:relative;
   overflow-x:auto;
   overflow-y:hidden;
   -webkit-overflow-scrolling:touch;
@@ -247,6 +248,17 @@ button.secondary{
 .history-scroll.dragging{
   cursor:grabbing;
   user-select:none
+}
+.history-y-axis{
+  position:sticky;
+  left:0;
+  z-index:5;
+  display:block;
+  float:left;
+  width:58px!important;
+  height:310px;
+  margin-right:-58px;
+  pointer-events:none
 }
 .history-inner{
   min-width:100%;
@@ -3189,39 +3201,18 @@ function draw() {
     }
   }
 
-  // Horizontal temperature grid.
-  ctx.strokeStyle =
-    "#e2e8f0";
-
-  ctx.fillStyle =
-    "#64748b";
-
-  for (
-    let i = 0;
-    i <= 4;
-    i++
-  ) {
-    const value =
-      low +
-      (high - low) * i / 4;
-
-    const y =
-      Y(value);
-
+  // Horizontal temperature grid: minor lines every 1°C and labelled major lines every 5°C.
+  for (let value = Math.ceil(low); value <= Math.floor(high); value += 1) {
+    const y = Y(value);
+    const major = value % 5 === 0;
+    ctx.strokeStyle = major ? "#cbd5e1" : "#eef2f7";
+    ctx.lineWidth = major ? 1 : 0.6;
     ctx.beginPath();
     ctx.moveTo(pad.l,y);
     ctx.lineTo(width - pad.r,y);
     ctx.stroke();
-
-    ctx.textAlign =
-      "right";
-
-    ctx.fillText(
-      `${value.toFixed(0)}°`,
-      pad.l - 5,
-      y + 3
-    );
   }
+  drawStickyTemperatureAxis(low,high,Y,height,pad);
 
   // Current-time divider.
   ctx.strokeStyle =
@@ -3336,6 +3327,46 @@ function draw() {
 
 }
 
+
+function drawStickyTemperatureAxis(low,high,Y,height,pad) {
+  const axis = $("historyYAxis");
+  if (!axis) return;
+  const dpr = window.devicePixelRatio || 1;
+  const axisWidth = 58;
+  axis.style.width = `${axisWidth}px`;
+  axis.style.height = `${height}px`;
+  axis.width = Math.round(axisWidth * dpr);
+  axis.height = Math.round(height * dpr);
+  const axisCtx = axis.getContext("2d");
+  axisCtx.setTransform(dpr,0,0,dpr,0,0);
+  axisCtx.clearRect(0,0,axisWidth,height);
+  axisCtx.fillStyle = "rgba(255,255,255,0.94)";
+  axisCtx.fillRect(0,0,axisWidth,height);
+  axisCtx.strokeStyle = "#94a3b8";
+  axisCtx.lineWidth = 1;
+  axisCtx.beginPath();
+  axisCtx.moveTo(axisWidth - 1,pad.t);
+  axisCtx.lineTo(axisWidth - 1,height - pad.b);
+  axisCtx.stroke();
+  axisCtx.font = "10px sans-serif";
+  axisCtx.fillStyle = "#475569";
+  axisCtx.textAlign = "right";
+  axisCtx.textBaseline = "middle";
+  for (let value = Math.ceil(low / 5) * 5; value <= high; value += 5) {
+    const y = Y(value);
+    axisCtx.beginPath();
+    axisCtx.moveTo(axisWidth - 5,y);
+    axisCtx.lineTo(axisWidth - 1,y);
+    axisCtx.stroke();
+    axisCtx.fillText(`${value}°`,axisWidth - 8,y);
+  }
+  axisCtx.save();
+  axisCtx.translate(10,pad.t + (height - pad.t - pad.b) / 2);
+  axisCtx.rotate(-Math.PI / 2);
+  axisCtx.textAlign = "center";
+  axisCtx.fillText("Temperature (°C)",0,0);
+  axisCtx.restore();
+}
 
 function enableHistoryDrag() {
   const scroller =
