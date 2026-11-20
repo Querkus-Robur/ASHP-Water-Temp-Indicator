@@ -236,32 +236,17 @@ button.secondary{
   color:var(--amber)
 }
 
-.history-shell{
-  display:grid;
-  grid-template-columns:58px minmax(0,1fr);
-  padding:0;
-  overflow:hidden
-}
 .history-scroll{
   overflow-x:auto;
   overflow-y:hidden;
   -webkit-overflow-scrolling:touch;
   touch-action:pan-x;
   cursor:grab;
-  scroll-behavior:smooth;
-  min-width:0
+  scroll-behavior:smooth
 }
 .history-scroll.dragging{
   cursor:grabbing;
   user-select:none
-}
-.history-y-axis{
-  display:block;
-  width:58px!important;
-  height:310px;
-  background:#fff;
-  z-index:5;
-  pointer-events:none
 }
 .history-inner{
   min-width:100%;
@@ -393,16 +378,15 @@ button.secondary{
   Swipe or drag left and right to move through time. Amber shading shows DHW Comfort/Eco periods.
 </div>
 
-<div class="chart history-shell">
-<canvas id="historyYAxis" class="history-y-axis" aria-label="Temperature axis in degrees Celsius"></canvas>
-<div class="history-scroll" id="historyScroll">
+<div class="chart history-scroll" id="historyScroll">
+
 <div class="history-inner" id="historyInner">
 <canvas
   id="chart"
   aria-label="ASHP temperatures and heating schedules">
 </canvas>
 </div>
-</div>
+
 </div>
 
 <div class="history-hint">← Swipe / drag to view 7 days history and tomorrow's schedule →</div>
@@ -580,6 +564,43 @@ Whole-house kWh/30 min
 
 <div class="sub" id="comparisonDetail">
   Loading dates with complete data...
+</div>
+
+</div>
+
+
+<div class="metric">
+
+<div class="label">
+  Heatmiser zones
+</div>
+
+<div class="sub" id="neoHubStatus">
+  Waiting for NeoHub3 data...
+</div>
+
+<div class="grid">
+
+<div class="item">
+<span>Zone 7 actual</span>
+<b id="zone7Actual">-- °C</b>
+</div>
+
+<div class="item">
+<span>Zone 7 target</span>
+<b id="zone7Target">-- °C</b>
+</div>
+
+<div class="item">
+<span>Zone 8 actual</span>
+<b id="zone8Actual">-- °C</b>
+</div>
+
+<div class="item">
+<span>Zone 8 target</span>
+<b id="zone8Target">-- °C</b>
+</div>
+
 </div>
 
 </div>
@@ -802,6 +823,9 @@ let samples =
 
 let electricity =
   [];
+
+let neoHub =
+  null;
 
 let dailyElectricity =
   [];
@@ -1205,6 +1229,12 @@ async function loadHistory() {
         ? data.electricity
 
         : [];
+
+
+    neoHub =
+      data.neohub
+      ||
+      null;
 
 
     renderHistory();
@@ -1619,6 +1649,8 @@ function renderHistory() {
         .toLocaleString()
       }`;
 
+
+  renderNeoHub();
 
   draw();
 
@@ -2383,6 +2415,89 @@ function drawDailyEnergyChart() {
       plotHeight / 2
     );
   }
+}
+
+
+// =====================================================
+// NEOHUB3 ZONES
+// =====================================================
+
+function renderNeoHub() {
+
+  const zones =
+    Array.isArray(
+      neoHub?.zones
+    )
+      ? neoHub.zones
+      : [];
+
+
+  for (
+    const zoneNumber
+    of [
+      7,
+      8
+    ]
+  ) {
+
+    const zone =
+      zones.find(
+        item =>
+          item.name ===
+          `Zone ${zoneNumber}`
+      );
+
+
+    $(
+      `zone${zoneNumber}Actual`
+    ).textContent =
+      Number.isFinite(
+        zone?.actualTemp
+      )
+        ? `${zone.actualTemp.toFixed(1)} °C`
+        : "-- °C";
+
+
+    $(
+      `zone${zoneNumber}Target`
+    ).textContent =
+      Number.isFinite(
+        zone?.targetTemp
+      )
+        ? `${zone.targetTemp.toFixed(1)} °C`
+        : "-- °C";
+
+  }
+
+
+  if (
+    !neoHub?.collectedAt
+  ) {
+    $("neoHubStatus").textContent =
+      "No NeoHub3 reading has been uploaded yet.";
+    return;
+  }
+
+
+  const ageMinutes =
+    Math.max(
+      0,
+      Math.round(
+        (
+          Date.now() -
+          new Date(
+            neoHub.collectedAt
+          ).getTime()
+        )
+        /
+        60000
+      )
+    );
+
+
+  $("neoHubStatus").textContent =
+    `NeoHub3 updated ${ageMinutes} min ago`;
+
 }
 
 
@@ -3205,18 +3320,39 @@ function draw() {
     }
   }
 
-  // Horizontal temperature grid: minor lines every 1°C and labelled major lines every 5°C.
-  for (let value = Math.ceil(low); value <= Math.floor(high); value += 1) {
-    const y = Y(value);
-    const major = value % 5 === 0;
-    ctx.strokeStyle = major ? "#cbd5e1" : "#eef2f7";
-    ctx.lineWidth = major ? 1 : 0.6;
+  // Horizontal temperature grid.
+  ctx.strokeStyle =
+    "#e2e8f0";
+
+  ctx.fillStyle =
+    "#64748b";
+
+  for (
+    let i = 0;
+    i <= 4;
+    i++
+  ) {
+    const value =
+      low +
+      (high - low) * i / 4;
+
+    const y =
+      Y(value);
+
     ctx.beginPath();
     ctx.moveTo(pad.l,y);
     ctx.lineTo(width - pad.r,y);
     ctx.stroke();
+
+    ctx.textAlign =
+      "right";
+
+    ctx.fillText(
+      `${value.toFixed(0)}°`,
+      pad.l - 5,
+      y + 3
+    );
   }
-  drawStickyTemperatureAxis(low,high,Y,height,pad);
 
   // Current-time divider.
   ctx.strokeStyle =
@@ -3331,46 +3467,6 @@ function draw() {
 
 }
 
-
-function drawStickyTemperatureAxis(low,high,Y,height,pad) {
-  const axis = $("historyYAxis");
-  if (!axis) return;
-  const dpr = window.devicePixelRatio || 1;
-  const axisWidth = 58;
-  axis.style.width = `${axisWidth}px`;
-  axis.style.height = `${height}px`;
-  axis.width = Math.round(axisWidth * dpr);
-  axis.height = Math.round(height * dpr);
-  const axisCtx = axis.getContext("2d");
-  axisCtx.setTransform(dpr,0,0,dpr,0,0);
-  axisCtx.clearRect(0,0,axisWidth,height);
-  axisCtx.fillStyle = "rgba(255,255,255,0.94)";
-  axisCtx.fillRect(0,0,axisWidth,height);
-  axisCtx.strokeStyle = "#94a3b8";
-  axisCtx.lineWidth = 1;
-  axisCtx.beginPath();
-  axisCtx.moveTo(axisWidth - 1,pad.t);
-  axisCtx.lineTo(axisWidth - 1,height - pad.b);
-  axisCtx.stroke();
-  axisCtx.font = "10px sans-serif";
-  axisCtx.fillStyle = "#475569";
-  axisCtx.textAlign = "right";
-  axisCtx.textBaseline = "middle";
-  for (let value = Math.ceil(low / 5) * 5; value <= high; value += 5) {
-    const y = Y(value);
-    axisCtx.beginPath();
-    axisCtx.moveTo(axisWidth - 5,y);
-    axisCtx.lineTo(axisWidth - 1,y);
-    axisCtx.stroke();
-    axisCtx.fillText(`${value}°`,axisWidth - 8,y);
-  }
-  axisCtx.save();
-  axisCtx.translate(10,pad.t + (height - pad.t - pad.b) / 2);
-  axisCtx.rotate(-Math.PI / 2);
-  axisCtx.textAlign = "center";
-  axisCtx.fillText("Temperature (°C)",0,0);
-  axisCtx.restore();
-}
 
 function enableHistoryDrag() {
   const scroller =
