@@ -393,15 +393,16 @@ button.secondary{
   Swipe or drag left and right to move through time. Amber shading shows DHW Comfort/Eco periods.
 </div>
 
-<div class="chart history-scroll" id="historyScroll">
-
+<div class="chart history-shell">
+<canvas id="historyYAxis" class="history-y-axis" aria-label="Temperature axis in degrees Celsius"></canvas>
+<div class="history-scroll" id="historyScroll">
 <div class="history-inner" id="historyInner">
 <canvas
   id="chart"
   aria-label="ASHP temperatures and heating schedules">
 </canvas>
 </div>
-
+</div>
 </div>
 
 <div class="history-hint">← Swipe / drag to view 7 days history and tomorrow's schedule →</div>
