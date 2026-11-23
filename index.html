@@ -336,7 +336,7 @@ button.secondary{
 
 <main class="card">
 
-<h1>Daikin Altherma Status <span style="display:inline-block;margin-left:.45rem;padding:.18rem .48rem;border-radius:999px;background:#0b78c4;color:#fff;font-size:.62rem;vertical-align:middle;letter-spacing:.04em">APP v23</span></h1>
+<h1>Daikin Altherma Status <span style="display:inline-block;margin-left:.45rem;padding:.18rem .48rem;border-radius:999px;background:#0b78c4;color:#fff;font-size:.62rem;vertical-align:middle;letter-spacing:.04em">APP v24</span></h1>
 
 <p class="subtitle">
   Cloud-collected temperature, schedule and whole-house energy monitor
@@ -433,12 +433,10 @@ button.secondary{
 </div>
 
 <div class="history-controls" aria-label="Graph zoom controls">
-  <button id="zoomOutBtn" type="button" class="secondary" aria-label="Zoom out">−</button>
   <span id="zoomLevel" class="zoom-level" aria-live="polite">100%</span>
-  <button id="zoomInBtn" type="button" class="secondary" aria-label="Zoom in">+</button>
   <button id="zoomResetBtn" type="button" class="secondary">Reset zoom</button>
 </div>
-<div class="history-hint">← Swipe / drag to pan • + / − zoom both axes • deployment APP v23 →</div>
+<div class="history-hint">← Swipe / drag to pan • pinch or Ctrl + wheel to zoom • deployment APP v24 →</div>
 
 <div class="legend">
 
@@ -959,9 +957,7 @@ $("compareTariffsBtn")
 
 enableHistoryDrag();
 enableHistoryZoom();
-$("zoomInBtn").addEventListener("click", () => setHistoryZoom(historyZoom * 1.25));
-$("zoomOutBtn").addEventListener("click", () => setHistoryZoom(historyZoom / 1.25));
-$("zoomResetBtn").addEventListener("click", () => setHistoryZoom(1));
+$("zoomResetBtn").addEventListener("click", () => resetHistoryZoom());
 
 
 // =====================================================
@@ -3569,39 +3565,144 @@ function draw() {
 }
 
 
-function setHistoryZoom(nextZoom, anchorClientX = null) {
+function setHistoryZoom(
+  nextZoom,
+  anchorClientX = null,
+  anchorClientY = null
+) {
   const scroller = $("historyScroll");
   const oldZoom = historyZoom;
-  const clamped = Math.min(HISTORY_ZOOM_MAX, Math.max(HISTORY_ZOOM_MIN, nextZoom));
+  const clamped = Math.min(
+    HISTORY_ZOOM_MAX,
+    Math.max(HISTORY_ZOOM_MIN,nextZoom)
+  );
+
   if (Math.abs(clamped - oldZoom) < 0.001) return;
-  const viewportX = anchorClientX == null ? scroller.clientWidth / 2 : anchorClientX - scroller.getBoundingClientRect().left;
+
+  const rect = scroller.getBoundingClientRect();
+  const viewportX = anchorClientX == null
+    ? scroller.clientWidth / 2
+    : Math.max(0,Math.min(scroller.clientWidth,anchorClientX - rect.left));
+  const viewportY = anchorClientY == null
+    ? scroller.clientHeight / 2
+    : Math.max(0,Math.min(scroller.clientHeight,anchorClientY - rect.top));
+
   const contentX = scroller.scrollLeft + viewportX;
+  const contentY = scroller.scrollTop + viewportY;
+
   historyZoom = clamped;
-  if (Math.abs(historyZoom - 1) < 0.001) scroller.scrollTop = 0;
   $("zoomLevel").textContent = `${Math.round(historyZoom * 100)}%`;
+
   draw();
+
   requestAnimationFrame(() => {
     const ratio = historyZoom / oldZoom;
-    scroller.scrollLeft = Math.max(0, contentX * ratio - viewportX);
+    scroller.scrollLeft = Math.max(0,contentX * ratio - viewportX);
+    scroller.scrollTop = Math.max(0,contentY * ratio - viewportY);
+    const axis = $("historyAxis");
+    if (axis) axis.style.transform = `translateY(${-scroller.scrollTop}px)`;
   });
 }
+
+
+function resetHistoryZoom() {
+  const scroller = $("historyScroll");
+  historyZoom = 1;
+  $("zoomLevel").textContent = "100%";
+  scroller.scrollTop = 0;
+  scroller.dataset.initialised = "";
+  draw();
+}
+
 
 function enableHistoryZoom() {
   const scroller = $("historyScroll");
   if (!scroller || scroller.dataset.zoomReady) return;
   scroller.dataset.zoomReady = "true";
+
+  // Mouse/trackpad: only Ctrl/Command + wheel zooms. A normal wheel is left
+  // to the browser so it never unexpectedly changes graph scale.
   scroller.addEventListener("wheel", event => {
-    // Ctrl/meta-wheel is browser/trackpad pinch. Plain vertical wheel scrolls the enlarged Y axis.
-    if (event.ctrlKey || event.metaKey || Math.abs(event.deltaY) >= Math.abs(event.deltaX)) {
-      event.preventDefault();
-      setHistoryZoom(historyZoom * Math.exp(-event.deltaY * 0.002), event.clientX);
-    }
+    if (!(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    setHistoryZoom(
+      historyZoom * Math.exp(-event.deltaY * 0.002),
+      event.clientX,
+      event.clientY
+    );
   }, { passive:false });
+
+  // Touch: genuine two-finger pinch. One finger remains horizontal pan.
+  const touches = new Map();
+  let pinchStartDistance = null;
+  let pinchStartZoom = null;
+
+  const distance = () => {
+    const pts = Array.from(touches.values());
+    if (pts.length < 2) return null;
+    return Math.hypot(pts[1].x - pts[0].x,pts[1].y - pts[0].y);
+  };
+
+  const centre = () => {
+    const pts = Array.from(touches.values());
+    if (pts.length < 2) return null;
+    return {
+      x:(pts[0].x + pts[1].x) / 2,
+      y:(pts[0].y + pts[1].y) / 2
+    };
+  };
+
+  scroller.addEventListener("pointerdown", event => {
+    if (event.pointerType !== "touch") return;
+    touches.set(event.pointerId,{x:event.clientX,y:event.clientY});
+    if (touches.size === 2) {
+      pinchStartDistance = distance();
+      pinchStartZoom = historyZoom;
+    }
+  });
+
+  scroller.addEventListener("pointermove", event => {
+    if (event.pointerType !== "touch" || !touches.has(event.pointerId)) return;
+    touches.set(event.pointerId,{x:event.clientX,y:event.clientY});
+    if (touches.size !== 2 || !pinchStartDistance || !pinchStartZoom) return;
+    event.preventDefault();
+    const currentDistance = distance();
+    const midpoint = centre();
+    if (!currentDistance || !midpoint) return;
+    setHistoryZoom(
+      pinchStartZoom * currentDistance / pinchStartDistance,
+      midpoint.x,
+      midpoint.y
+    );
+  }, { passive:false });
+
+  const endTouch = event => {
+    touches.delete(event.pointerId);
+    if (touches.size < 2) {
+      pinchStartDistance = null;
+      pinchStartZoom = null;
+    }
+  };
+
+  scroller.addEventListener("pointerup",endTouch);
+  scroller.addEventListener("pointercancel",endTouch);
+
   scroller.addEventListener("scroll", () => {
     const axis = $("historyAxis");
     if (axis) axis.style.transform = `translateY(${-scroller.scrollTop}px)`;
+    const latest = samples.at(-1);
+    const now = Date.now();
+    if (latest) {
+      drawStickyTimeAxis(
+        now - 7 * 86400000,
+        now + 1 * 86400000,
+        Math.max(scroller.clientWidth * 8,2400) * historyZoom,
+        scroller
+      );
+    }
   }, { passive:true });
 }
+
 
 function enableHistoryDrag() {
   const scroller =
@@ -3626,6 +3727,9 @@ function enableHistoryDrag() {
   scroller.addEventListener(
     "pointerdown",
     event => {
+      if (event.pointerType === "touch" && !event.isPrimary) {
+        return;
+      }
       dragging = true;
       startX = event.clientX;
       startScroll = scroller.scrollLeft;
