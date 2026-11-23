@@ -238,7 +238,7 @@ button.secondary{
 
 .history-shell{
   display:grid;
-  grid-template-columns:44px minmax(0,1fr) 24px;
+  grid-template-columns:44px minmax(0,1fr);
   align-items:start;
   margin-top:.7rem
 }
@@ -259,7 +259,7 @@ button.secondary{
   touch-action:pan-x;
   cursor:grab;
   scroll-behavior:smooth;
-  border-radius:0;
+  border-radius:0 10px 10px 0;
   margin-top:0;
   flex:1 1 auto;
   min-width:0
@@ -278,9 +278,6 @@ button.secondary{
   height:28px
 }
 
-.history-y-pan{width:24px;height:310px;display:flex;align-items:center;justify-content:center;background:#fff;border-left:1px solid var(--line);border-radius:0 10px 10px 0}
-.history-y-pan input{width:280px;height:18px;margin:0;transform:rotate(-90deg);accent-color:#64748b}
-.history-y-pan.disabled{opacity:.35}
 .history-scroll.dragging{
   cursor:grabbing;
   user-select:none
@@ -339,7 +336,7 @@ button.secondary{
 
 <main class="card">
 
-<h1>Daikin Altherma Status <span style="display:inline-block;margin-left:.45rem;padding:.18rem .48rem;border-radius:999px;background:#0b78c4;color:#fff;font-size:.62rem;vertical-align:middle;letter-spacing:.04em">APP v28</span></h1>
+<h1>Daikin Altherma Status <span style="display:inline-block;margin-left:.45rem;padding:.18rem .48rem;border-radius:999px;background:#0b78c4;color:#fff;font-size:.62rem;vertical-align:middle;letter-spacing:.04em">APP v29</span></h1>
 
 <p class="subtitle">
   Cloud-collected temperature, schedule and whole-house energy monitor
@@ -433,17 +430,13 @@ button.secondary{
 </div>
 </div>
 
-<div class="history-y-pan disabled" id="historyYPanWrap">
-<input id="historyYPan" type="range" min="-100" max="100" value="0" step="1" aria-label="Pan temperature scale up and down">
-</div>
-
 </div>
 
 <div class="history-controls" aria-label="Graph zoom controls">
   <span id="zoomLevel" class="zoom-level" aria-live="polite">100%</span>
   <button id="zoomResetBtn" type="button" class="secondary">Reset zoom</button>
 </div>
-<div class="history-hint">← Swipe / drag to pan • pinch or Ctrl + wheel to zoom both axes • deployment APP v28 →</div>
+<div class="history-hint">← Drag in any direction to pan • pinch or Ctrl + wheel to zoom both axes • deployment APP v29 →</div>
 
 <div class="legend">
 
@@ -910,7 +903,7 @@ let dailyElectricity =
 let completeEnergyDates =
   [];
 let historyZoom = 1;
-let historyYPan = 0;
+let historyYPanDegrees = 0;
 const HISTORY_ZOOM_MIN = 0.5;
 const HISTORY_ZOOM_MAX = 6;
 
@@ -966,7 +959,6 @@ $("compareTariffsBtn")
 enableHistoryDrag();
 enableHistoryZoom();
 $("zoomResetBtn").addEventListener("click", () => resetHistoryZoom());
-$("historyYPan").addEventListener("input", event => { historyYPan = Number(event.target.value) / 100; draw(); });
 
 
 // =====================================================
@@ -3327,22 +3319,20 @@ function draw() {
   const visibleSpan =
     Math.max(5,baseSpan / historyZoom);
 
-  const availablePan =
+  const maxPanDegrees =
     Math.max(0,(baseSpan - visibleSpan) / 2);
 
-  const centre =
-    baseCentre + historyYPan * availablePan;
+  historyYPanDegrees =
+    Math.max(-maxPanDegrees,Math.min(maxPanDegrees,historyYPanDegrees));
 
-  let low = centre - visibleSpan / 2;
-  let high = centre + visibleSpan / 2;
+  const visibleCentre =
+    baseCentre + historyYPanDegrees;
 
-  const yPanWrap = $("historyYPanWrap");
-  const yPanInput = $("historyYPan");
-  if (yPanWrap && yPanInput) {
-    const enabled = availablePan > 0.01;
-    yPanInput.disabled = !enabled;
-    yPanWrap.classList.toggle("disabled",!enabled);
-  }
+  let low =
+    visibleCentre - visibleSpan / 2;
+
+  let high =
+    visibleCentre + visibleSpan / 2;
 
   const X =
     time =>
@@ -3636,8 +3626,7 @@ function setHistoryZoom(
 function resetHistoryZoom() {
   const scroller = $("historyScroll");
   historyZoom = 1;
-  historyYPan = 0;
-  $("historyYPan").value = "0";
+  historyYPanDegrees = 0;
   $("zoomLevel").textContent = "100%";
   scroller.scrollTop = 0;
   const axis = $("historyAxis");
@@ -3752,18 +3741,28 @@ function enableHistoryDrag() {
   let startX =
     0;
 
+  let startY =
+    0;
+
   let startScroll =
+    0;
+
+  let startYPanDegrees =
     0;
 
   scroller.addEventListener(
     "pointerdown",
     event => {
+      // The second touch belongs to pinch zoom and must not start a pan.
       if (event.pointerType === "touch" && !event.isPrimary) {
         return;
       }
+
       dragging = true;
       startX = event.clientX;
+      startY = event.clientY;
       startScroll = scroller.scrollLeft;
+      startYPanDegrees = historyYPanDegrees;
       scroller.classList.add("dragging");
       scroller.setPointerCapture(event.pointerId);
     }
@@ -3775,9 +3774,54 @@ function enableHistoryDrag() {
       if (!dragging) {
         return;
       }
+
+      // Horizontal drag behaves as before.
       scroller.scrollLeft =
         startScroll -
         (event.clientX - startX);
+
+      // When vertically zoomed, dragging the graph vertically pans the
+      // visible temperature window. Dragging down reveals higher values;
+      // dragging up reveals lower values, like moving a physical chart.
+      if (historyZoom > 1.001) {
+        const plotHeight = 310 - 12 - 32;
+        const currentValues = [];
+
+        samples.forEach(sample => {
+          [sample.lwt,sample.tank,sample.room].forEach(value => {
+            if (finite(value)) currentValues.push(value);
+          });
+        });
+
+        neoHubHistory.forEach(snapshot => {
+          for (const zone of snapshot.zones || []) {
+            if (finite(zone.actualTemp)) currentValues.push(zone.actualTemp);
+            if (finite(zone.targetTemp)) currentValues.push(zone.targetTemp);
+          }
+        });
+
+        const baseLow = currentValues.length
+          ? Math.floor((Math.min(...currentValues) - 3) / 5) * 5
+          : 15;
+        const baseHigh = currentValues.length
+          ? Math.ceil((Math.max(...currentValues) + 3) / 5) * 5
+          : 60;
+        const baseSpan = Math.max(10,baseHigh - baseLow);
+        const visibleSpan = Math.max(5,baseSpan / historyZoom);
+        const maxPanDegrees = Math.max(0,(baseSpan - visibleSpan) / 2);
+        const deltaY = event.clientY - startY;
+        const degreesPerPixel = visibleSpan / plotHeight;
+
+        historyYPanDegrees = Math.max(
+          -maxPanDegrees,
+          Math.min(
+            maxPanDegrees,
+            startYPanDegrees + deltaY * degreesPerPixel
+          )
+        );
+
+        draw();
+      }
     }
   );
 
@@ -3786,9 +3830,15 @@ function enableHistoryDrag() {
       if (!dragging) {
         return;
       }
+
       dragging = false;
       scroller.classList.remove("dragging");
-      if (event.pointerId !== undefined && scroller.hasPointerCapture(event.pointerId)) {
+
+      if (
+        event.pointerId !== undefined
+        &&
+        scroller.hasPointerCapture(event.pointerId)
+      ) {
         scroller.releasePointerCapture(event.pointerId);
       }
     };
