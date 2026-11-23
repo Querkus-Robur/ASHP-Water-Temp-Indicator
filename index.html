@@ -416,7 +416,13 @@ button.secondary{
 
 </div>
 
-<div class="history-hint">← Swipe / drag to view 7 days history and tomorrow's schedule →</div>
+<div class="history-controls" aria-label="Graph zoom controls">
+  <button id="zoomOutBtn" type="button" class="secondary" aria-label="Zoom out">−</button>
+  <span id="zoomLevel" class="zoom-level">100%</span>
+  <button id="zoomInBtn" type="button" class="secondary" aria-label="Zoom in">+</button>
+  <button id="zoomResetBtn" type="button" class="secondary">Reset zoom</button>
+</div>
+<div class="history-hint">← Swipe / drag to pan • mouse wheel / trackpad to zoom • 7 days history + tomorrow →</div>
 
 <div class="legend">
 
@@ -882,6 +888,9 @@ let dailyElectricity =
 
 let completeEnergyDates =
   [];
+let historyZoom = 1;
+const HISTORY_ZOOM_MIN = 0.5;
+const HISTORY_ZOOM_MAX = 6;
 
 
 // =====================================================
@@ -933,6 +942,10 @@ $("compareTariffsBtn")
 
 
 enableHistoryDrag();
+enableHistoryZoom();
+$("zoomInBtn").addEventListener("click", () => setHistoryZoom(historyZoom * 1.25));
+$("zoomOutBtn").addEventListener("click", () => setHistoryZoom(historyZoom / 1.25));
+$("zoomResetBtn").addEventListener("click", () => setHistoryZoom(1));
 
 
 // =====================================================
@@ -3150,11 +3163,12 @@ function draw() {
     daysPast +
     daysFuture;
 
-  const width =
+  const baseWidth =
     Math.max(
       viewportWidth * totalDays,
       2400
     );
+  const width = baseWidth * historyZoom;
 
   const height =
     310;
@@ -3190,7 +3204,7 @@ function draw() {
   );
 
   const pad = {
-    l:44,
+    l:0,
     r:12,
     t:12,
     b:32
@@ -3365,25 +3379,24 @@ function draw() {
       );
     }
 
-    for (const hour of [6,12,18]) {
-      const tick =
-        new Date(day);
+    for (let hour = 1; hour < 24; hour++) {
+      const tick = new Date(day);
       tick.setHours(hour,0,0,0);
       const tickTime = tick.getTime();
       if (tickTime >= start && tickTime <= end) {
         const x = X(tickTime);
-        ctx.strokeStyle = "#eef2f7";
+        const major = hour % 6 === 0;
+        ctx.strokeStyle = major ? "#e2e8f0" : "#f1f5f9";
+        ctx.lineWidth = major ? 1 : 0.6;
         ctx.beginPath();
         ctx.moveTo(x,pad.t);
         ctx.lineTo(x,pad.t + plotHeight);
         ctx.stroke();
-        ctx.fillStyle = "#94a3b8";
-        ctx.textAlign = "center";
-        ctx.fillText(
-          `${String(hour).padStart(2,"0")}:00`,
-          x,
-          height - 5
-        );
+        if (major) {
+          ctx.fillStyle = "#94a3b8";
+          ctx.textAlign = "center";
+          ctx.fillText(`${String(hour).padStart(2,"0")}:00`,x,height - 5);
+        }
       }
     }
   }
@@ -3529,6 +3542,33 @@ function draw() {
 
 }
 
+
+function setHistoryZoom(nextZoom, anchorClientX = null) {
+  const scroller = $("historyScroll");
+  const oldZoom = historyZoom;
+  const clamped = Math.min(HISTORY_ZOOM_MAX, Math.max(HISTORY_ZOOM_MIN, nextZoom));
+  if (Math.abs(clamped - oldZoom) < 0.001) return;
+  const viewportX = anchorClientX == null ? scroller.clientWidth / 2 : anchorClientX - scroller.getBoundingClientRect().left;
+  const contentX = scroller.scrollLeft + viewportX;
+  historyZoom = clamped;
+  $("zoomLevel").textContent = `${Math.round(historyZoom * 100)}%`;
+  draw();
+  requestAnimationFrame(() => {
+    const ratio = historyZoom / oldZoom;
+    scroller.scrollLeft = Math.max(0, contentX * ratio - viewportX);
+  });
+}
+
+function enableHistoryZoom() {
+  const scroller = $("historyScroll");
+  if (!scroller || scroller.dataset.zoomReady) return;
+  scroller.dataset.zoomReady = "true";
+  scroller.addEventListener("wheel", event => {
+    if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
+    event.preventDefault();
+    setHistoryZoom(historyZoom * Math.exp(-event.deltaY * 0.002), event.clientX);
+  }, { passive:false });
+}
 
 function enableHistoryDrag() {
   const scroller =
