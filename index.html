@@ -418,11 +418,11 @@ button.secondary{
 
 <div class="history-controls" aria-label="Graph zoom controls">
   <button id="zoomOutBtn" type="button" class="secondary" aria-label="Zoom out">−</button>
-  <span id="zoomLevel" class="zoom-level">100%</span>
+  <span id="zoomLevel" class="zoom-level" aria-live="polite">100%</span>
   <button id="zoomInBtn" type="button" class="secondary" aria-label="Zoom in">+</button>
   <button id="zoomResetBtn" type="button" class="secondary">Reset zoom</button>
 </div>
-<div class="history-hint">← Swipe / drag to pan • mouse wheel / trackpad to zoom • 7 days history + tomorrow →</div>
+<div class="history-hint">← Swipe / drag to pan • zoom changes both time and temperature scales →</div>
 
 <div class="legend">
 
@@ -3290,6 +3290,13 @@ function draw() {
   if (high <= low) {
     high = low + 10;
   }
+
+  // Use the same zoom factor on both axes. A factor above 1 narrows
+  // the temperature span; a factor below 1 expands it.
+  const yMid = (low + high) / 2;
+  const ySpan = Math.max(5, (high - low) / historyZoom);
+  low = yMid - ySpan / 2;
+  high = yMid + ySpan / 2;
 
   const X =
     time =>
