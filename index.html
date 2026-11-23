@@ -236,13 +236,32 @@ button.secondary{
   color:var(--amber)
 }
 
+.history-shell{
+  display:flex;
+  align-items:stretch;
+  margin-top:.7rem
+}
+.history-axis{
+  background:#fff;
+  border:1px solid var(--line);
+  border-right:0;
+  border-radius:10px 0 0 10px;
+  flex:0 0 44px;
+  height:310px;
+  position:relative;
+  z-index:2
+}
 .history-scroll{
   overflow-x:auto;
   overflow-y:hidden;
   -webkit-overflow-scrolling:touch;
   touch-action:pan-x;
   cursor:grab;
-  scroll-behavior:smooth
+  scroll-behavior:smooth;
+  border-radius:0 10px 10px 0;
+  margin-top:0;
+  flex:1 1 auto;
+  min-width:0
 }
 .history-scroll.dragging{
   cursor:grabbing;
@@ -378,13 +397,21 @@ button.secondary{
   Swipe or drag left and right to move through time. Amber shading shows DHW Comfort/Eco periods.
 </div>
 
-<div class="chart history-scroll" id="historyScroll">
+<div class="history-shell">
 
+<canvas
+  id="historyAxis"
+  class="history-axis"
+  aria-label="Fixed temperature axis">
+</canvas>
+
+<div class="chart history-scroll" id="historyScroll">
 <div class="history-inner" id="historyInner">
 <canvas
   id="chart"
-  aria-label="ASHP temperatures and heating schedules">
+  aria-label="ASHP temperatures, Heatmiser zones and heating schedules">
 </canvas>
+</div>
 </div>
 
 </div>
@@ -423,6 +450,26 @@ Room temp
   style="background:#ef4444;height:4px">
 </i>
 Room target
+</span>
+
+<span class="key">
+<i class="sw" style="background:#0f766e;height:4px"></i>
+Zone 7 actual
+</span>
+
+<span class="key">
+<i class="sw" style="background:#14b8a6;height:4px"></i>
+Zone 7 target
+</span>
+
+<span class="key">
+<i class="sw" style="background:#c2410c;height:4px"></i>
+Zone 8 actual
+</span>
+
+<span class="key">
+<i class="sw" style="background:#fb923c;height:4px"></i>
+Zone 8 target
 </span>
 
 <span class="key">
@@ -812,7 +859,7 @@ const ROOM_DB =
   0.2;
 
 const DHW_TRIGGER =
-  36;
+  35;
 
 const FLOW_RISE =
   2;
@@ -826,6 +873,9 @@ let electricity =
 
 let neoHub =
   null;
+
+let neoHubHistory =
+  [];
 
 let dailyElectricity =
   [];
@@ -1235,6 +1285,14 @@ async function loadHistory() {
       data.neohub
       ||
       null;
+
+
+    neoHubHistory =
+      Array.isArray(
+        data.neohubHistory
+      )
+        ? data.neohubHistory
+        : [];
 
 
     renderHistory();
@@ -3178,6 +3236,16 @@ function draw() {
     }
   );
 
+  neoHubHistory.forEach(
+    snapshot => {
+      for (const zone of snapshot.zones || []) {
+        if (finite(zone.actualTemp)) values.push(zone.actualTemp);
+        if (finite(zone.targetTemp)) values.push(zone.targetTemp);
+      }
+    }
+  );
+
+
   const latest =
     history.at(-1);
 
@@ -3320,39 +3388,28 @@ function draw() {
     }
   }
 
-  // Horizontal temperature grid.
-  ctx.strokeStyle =
-    "#e2e8f0";
-
-  ctx.fillStyle =
-    "#64748b";
-
+  // Horizontal temperature grid: 1 C minor and 5 C major lines.
   for (
-    let i = 0;
-    i <= 4;
-    i++
+    let value = Math.ceil(low);
+    value <= Math.floor(high);
+    value++
   ) {
-    const value =
-      low +
-      (high - low) * i / 4;
-
-    const y =
-      Y(value);
-
+    const y = Y(value);
+    const major = value % 5 === 0;
+    ctx.strokeStyle = major ? "#cbd5e1" : "#edf2f7";
+    ctx.lineWidth = major ? 1 : 0.6;
     ctx.beginPath();
-    ctx.moveTo(pad.l,y);
+    ctx.moveTo(0,y);
     ctx.lineTo(width - pad.r,y);
     ctx.stroke();
-
-    ctx.textAlign =
-      "right";
-
-    ctx.fillText(
-      `${value.toFixed(0)}°`,
-      pad.l - 5,
-      y + 3
-    );
   }
+
+  drawFixedTemperatureAxis(
+    low,
+    high,
+    height,
+    pad
+  );
 
   // Current-time divider.
   ctx.strokeStyle =
@@ -3427,6 +3484,11 @@ function draw() {
   drawSeries(ctx,recent,"lwt","#0077c8",X,Y);
   drawSeries(ctx,recent,"tank","#8b5cf6",X,Y);
   drawSeries(ctx,recent,"room","#16a34a",X,Y);
+
+  drawNeoHubSeries(ctx,neoHubHistory,"Zone 7","actualTemp","#0f766e",X,Y,false);
+  drawNeoHubSeries(ctx,neoHubHistory,"Zone 7","targetTemp","#14b8a6",X,Y,true);
+  drawNeoHubSeries(ctx,neoHubHistory,"Zone 8","actualTemp","#c2410c",X,Y,false);
+  drawNeoHubSeries(ctx,neoHubHistory,"Zone 8","targetTemp","#fb923c",X,Y,true);
 
   if (latest?.heatSchedule) {
     drawTargetSchedule(
@@ -3530,6 +3592,82 @@ function enableHistoryDrag() {
       stop(event);
     }
   });
+}
+
+
+function drawFixedTemperatureAxis(
+  low,
+  high,
+  height,
+  pad
+) {
+  const canvas = $("historyAxis");
+  const dpr = window.devicePixelRatio || 1;
+  const width = 44;
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,width,height);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0,0,width,height);
+  ctx.font = "10px sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+
+  const plotHeight = height - pad.t - pad.b;
+  const Y = value =>
+    pad.t + (high - value) / (high - low) * plotHeight;
+
+  for (let value = Math.ceil(low / 5) * 5; value <= high; value += 5) {
+    const y = Y(value);
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.beginPath();
+    ctx.moveTo(width - 6,y);
+    ctx.lineTo(width,y);
+    ctx.stroke();
+    ctx.fillStyle = "#64748b";
+    ctx.fillText(`${value}°`,width - 8,y);
+  }
+}
+
+
+function drawNeoHubSeries(
+  ctx,
+  snapshots,
+  zoneName,
+  key,
+  colour,
+  X,
+  Y,
+  dashed
+) {
+  const points = snapshots
+    .map(snapshot => {
+      const zone = (snapshot.zones || []).find(item => item.name === zoneName);
+      return {
+        timestamp: snapshot.collectedAt,
+        value: zone?.[key]
+      };
+    })
+    .filter(point => point.timestamp && finite(point.value));
+
+  if (!points.length) return;
+
+  ctx.strokeStyle = colour;
+  ctx.lineWidth = key === "targetTemp" ? 1.5 : 2;
+  ctx.setLineDash(dashed ? [5,3] : []);
+  ctx.beginPath();
+  points.forEach((point,index) => {
+    const x = X(new Date(point.timestamp).getTime());
+    const y = Y(point.value);
+    if (index === 0) ctx.moveTo(x,y);
+    else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
 }
 
 
