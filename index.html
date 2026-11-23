@@ -237,23 +237,24 @@ button.secondary{
 }
 
 .history-shell{
-  display:flex;
-  align-items:stretch;
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr);
+  align-items:start;
   margin-top:.7rem
 }
 .history-axis{
   background:#fff;
-  border:1px solid var(--line);
-  border-right:0;
-  border-radius:10px 0 0 10px;
-  flex:0 0 44px;
+  border:0;
+  width:44px;
   height:310px;
   position:relative;
-  z-index:2
+  z-index:2;
+  margin:7px -1px 0 0
 }
 .history-scroll{
   overflow-x:auto;
-  overflow-y:hidden;
+  overflow-y:auto;
+  max-height:420px;
   -webkit-overflow-scrolling:touch;
   touch-action:pan-x;
   cursor:grab;
@@ -321,7 +322,7 @@ button.secondary{
 
 <main class="card">
 
-<h1>Daikin Altherma Status</h1>
+<h1>Daikin Altherma Status <span style="display:inline-block;margin-left:.45rem;padding:.18rem .48rem;border-radius:999px;background:#0b78c4;color:#fff;font-size:.62rem;vertical-align:middle;letter-spacing:.04em">APP v22</span></h1>
 
 <p class="subtitle">
   Cloud-collected temperature, schedule and whole-house energy monitor
@@ -422,7 +423,7 @@ button.secondary{
   <button id="zoomInBtn" type="button" class="secondary" aria-label="Zoom in">+</button>
   <button id="zoomResetBtn" type="button" class="secondary">Reset zoom</button>
 </div>
-<div class="history-hint">← Swipe / drag to pan • zoom changes both time and temperature scales →</div>
+<div class="history-hint">← Swipe / drag to pan • + / − zoom both axes • deployment APP v22 →</div>
 
 <div class="legend">
 
@@ -2255,8 +2256,10 @@ function drawDailyEnergyChart() {
       rect.width
     );
 
+  // v22: zoom changes both chart dimensions. This makes Y zoom visually real,
+  // rather than only changing the calculated temperature domain.
   const height =
-    310;
+    Math.round(310 * historyZoom);
 
   canvas.width =
     width *
@@ -3291,13 +3294,6 @@ function draw() {
     high = low + 10;
   }
 
-  // Use the same zoom factor on both axes. A factor above 1 narrows
-  // the temperature span; a factor below 1 expands it.
-  const yMid = (low + high) / 2;
-  const ySpan = Math.max(5, (high - low) / historyZoom);
-  low = yMid - ySpan / 2;
-  high = yMid + ySpan / 2;
-
   const X =
     time =>
       pad.l
@@ -3430,6 +3426,7 @@ function draw() {
     height,
     pad
   );
+  $("historyAxis").style.transform = `translateY(${-scroller.scrollTop}px)`;
 
   // Current-time divider.
   ctx.strokeStyle =
@@ -3558,6 +3555,7 @@ function setHistoryZoom(nextZoom, anchorClientX = null) {
   const viewportX = anchorClientX == null ? scroller.clientWidth / 2 : anchorClientX - scroller.getBoundingClientRect().left;
   const contentX = scroller.scrollLeft + viewportX;
   historyZoom = clamped;
+  if (Math.abs(historyZoom - 1) < 0.001) scroller.scrollTop = 0;
   $("zoomLevel").textContent = `${Math.round(historyZoom * 100)}%`;
   draw();
   requestAnimationFrame(() => {
@@ -3571,10 +3569,16 @@ function enableHistoryZoom() {
   if (!scroller || scroller.dataset.zoomReady) return;
   scroller.dataset.zoomReady = "true";
   scroller.addEventListener("wheel", event => {
-    if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
-    event.preventDefault();
-    setHistoryZoom(historyZoom * Math.exp(-event.deltaY * 0.002), event.clientX);
+    // Ctrl/meta-wheel is browser/trackpad pinch. Plain vertical wheel scrolls the enlarged Y axis.
+    if (event.ctrlKey || event.metaKey || Math.abs(event.deltaY) >= Math.abs(event.deltaX)) {
+      event.preventDefault();
+      setHistoryZoom(historyZoom * Math.exp(-event.deltaY * 0.002), event.clientX);
+    }
   }, { passive:false });
+  scroller.addEventListener("scroll", () => {
+    const axis = $("historyAxis");
+    if (axis) axis.style.transform = `translateY(${-scroller.scrollTop}px)`;
+  }, { passive:true });
 }
 
 function enableHistoryDrag() {
