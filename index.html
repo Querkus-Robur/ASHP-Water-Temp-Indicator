@@ -249,7 +249,7 @@ button.secondary{
   height:310px;
   position:relative;
   z-index:2;
-  margin:7px -1px 0 0
+  margin:6.4px -1px 0 0
 }
 .history-scroll{
   overflow-x:auto;
@@ -264,6 +264,20 @@ button.secondary{
   flex:1 1 auto;
   min-width:0
 }
+
+.history-inner{position:relative}
+#historyXAxis{
+  position:sticky;
+  left:0;
+  bottom:0;
+  z-index:4;
+  display:block;
+  pointer-events:none;
+  background:rgba(255,255,255,.96);
+  border-top:1px solid #9fb0c3;
+  height:28px
+}
+
 .history-scroll.dragging{
   cursor:grabbing;
   user-select:none
@@ -322,7 +336,7 @@ button.secondary{
 
 <main class="card">
 
-<h1>Daikin Altherma Status <span style="display:inline-block;margin-left:.45rem;padding:.18rem .48rem;border-radius:999px;background:#0b78c4;color:#fff;font-size:.62rem;vertical-align:middle;letter-spacing:.04em">APP v22</span></h1>
+<h1>Daikin Altherma Status <span style="display:inline-block;margin-left:.45rem;padding:.18rem .48rem;border-radius:999px;background:#0b78c4;color:#fff;font-size:.62rem;vertical-align:middle;letter-spacing:.04em">APP v23</span></h1>
 
 <p class="subtitle">
   Cloud-collected temperature, schedule and whole-house energy monitor
@@ -412,6 +426,7 @@ button.secondary{
   id="chart"
   aria-label="ASHP temperatures, Heatmiser zones and heating schedules">
 </canvas>
+<canvas id="historyXAxis" aria-label="Sticky time axis"></canvas>
 </div>
 </div>
 
@@ -423,7 +438,7 @@ button.secondary{
   <button id="zoomInBtn" type="button" class="secondary" aria-label="Zoom in">+</button>
   <button id="zoomResetBtn" type="button" class="secondary">Reset zoom</button>
 </div>
-<div class="history-hint">← Swipe / drag to pan • + / − zoom both axes • deployment APP v22 →</div>
+<div class="history-hint">← Swipe / drag to pan • + / − zoom both axes • deployment APP v23 →</div>
 
 <div class="legend">
 
@@ -3173,14 +3188,20 @@ function draw() {
     );
   const width = baseWidth * historyZoom;
 
+  // v23: genuine two-dimensional zoom. Width controls time scale;
+  // height controls temperature scale.
   const height =
-    310;
+    Math.max(220, Math.round(310 * historyZoom));
 
   inner.style.width =
     `${width}px`;
+  inner.style.height =
+    `${height}px`;
 
   canvas.style.width =
     `${width}px`;
+  canvas.style.height =
+    `${height}px`;
 
   canvas.width =
     Math.round(
@@ -3360,7 +3381,7 @@ function draw() {
 
     if (dayTime >= start && dayTime <= end) {
       const x = X(dayTime);
-      ctx.strokeStyle = "#cbd5e1";
+      ctx.strokeStyle = "#9fb0c3";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(x,pad.t);
@@ -3389,8 +3410,8 @@ function draw() {
       if (tickTime >= start && tickTime <= end) {
         const x = X(tickTime);
         const major = hour % 6 === 0;
-        ctx.strokeStyle = major ? "#e2e8f0" : "#f1f5f9";
-        ctx.lineWidth = major ? 1 : 0.6;
+        ctx.strokeStyle = major ? "#aebdce" : "#d7e0ea";
+        ctx.lineWidth = major ? 1.25 : 0.8;
         ctx.beginPath();
         ctx.moveTo(x,pad.t);
         ctx.lineTo(x,pad.t + plotHeight);
@@ -3412,8 +3433,8 @@ function draw() {
   ) {
     const y = Y(value);
     const major = value % 5 === 0;
-    ctx.strokeStyle = major ? "#cbd5e1" : "#edf2f7";
-    ctx.lineWidth = major ? 1 : 0.6;
+    ctx.strokeStyle = major ? "#9fb0c3" : "#d3dde8";
+    ctx.lineWidth = major ? 1.25 : 0.8;
     ctx.beginPath();
     ctx.moveTo(0,y);
     ctx.lineTo(width - pad.r,y);
@@ -3427,6 +3448,7 @@ function draw() {
     pad
   );
   $("historyAxis").style.transform = `translateY(${-scroller.scrollTop}px)`;
+  drawStickyTimeAxis(start, end, width, scroller);
 
   // Current-time divider.
   ctx.strokeStyle =
@@ -3645,6 +3667,43 @@ function enableHistoryDrag() {
   });
 }
 
+
+function drawStickyTimeAxis(start, end, fullWidth, scroller) {
+  const canvas = $("historyXAxis");
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const visibleWidth = Math.max(1, scroller.clientWidth);
+  const height = 28;
+  canvas.style.width = `${visibleWidth}px`;
+  canvas.style.height = `${height}px`;
+  canvas.width = Math.round(visibleWidth * dpr);
+  canvas.height = Math.round(height * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,visibleWidth,height);
+  ctx.fillStyle = "rgba(255,255,255,.96)";
+  ctx.fillRect(0,0,visibleWidth,height);
+  ctx.strokeStyle = "#9fb0c3";
+  ctx.beginPath(); ctx.moveTo(0,.5); ctx.lineTo(visibleWidth,.5); ctx.stroke();
+  ctx.font = "10px sans-serif";
+  ctx.fillStyle = "#64748b";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const left = scroller.scrollLeft;
+  const right = left + visibleWidth;
+  const first = new Date(start); first.setMinutes(0,0,0);
+  for (let t=first.getTime(); t<=end; t+=3600000) {
+    const globalX = (t-start)/(end-start)*fullWidth;
+    if (globalX < left || globalX > right) continue;
+    const hour = new Date(t).getHours();
+    if (hour % 6 === 0) {
+      const x = globalX-left;
+      ctx.strokeStyle="#aebdce";
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,7); ctx.stroke();
+      ctx.fillText(`${String(hour).padStart(2,"0")}:00`,x,16);
+    }
+  }
+}
 
 function drawFixedTemperatureAxis(
   low,
