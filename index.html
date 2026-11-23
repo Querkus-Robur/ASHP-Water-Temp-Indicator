@@ -238,7 +238,7 @@ button.secondary{
 
 .history-shell{
   display:grid;
-  grid-template-columns:44px minmax(0,1fr);
+  grid-template-columns:44px minmax(0,1fr) 24px;
   align-items:start;
   margin-top:.7rem
 }
@@ -259,7 +259,7 @@ button.secondary{
   touch-action:pan-x;
   cursor:grab;
   scroll-behavior:smooth;
-  border-radius:0 10px 10px 0;
+  border-radius:0;
   margin-top:0;
   flex:1 1 auto;
   min-width:0
@@ -278,6 +278,9 @@ button.secondary{
   height:28px
 }
 
+.history-y-pan{width:24px;height:310px;display:flex;align-items:center;justify-content:center;background:#fff;border-left:1px solid var(--line);border-radius:0 10px 10px 0}
+.history-y-pan input{width:280px;height:18px;margin:0;transform:rotate(-90deg);accent-color:#64748b}
+.history-y-pan.disabled{opacity:.35}
 .history-scroll.dragging{
   cursor:grabbing;
   user-select:none
@@ -336,7 +339,7 @@ button.secondary{
 
 <main class="card">
 
-<h1>Daikin Altherma Status <span style="display:inline-block;margin-left:.45rem;padding:.18rem .48rem;border-radius:999px;background:#0b78c4;color:#fff;font-size:.62rem;vertical-align:middle;letter-spacing:.04em">APP v27</span></h1>
+<h1>Daikin Altherma Status <span style="display:inline-block;margin-left:.45rem;padding:.18rem .48rem;border-radius:999px;background:#0b78c4;color:#fff;font-size:.62rem;vertical-align:middle;letter-spacing:.04em">APP v28</span></h1>
 
 <p class="subtitle">
   Cloud-collected temperature, schedule and whole-house energy monitor
@@ -430,13 +433,17 @@ button.secondary{
 </div>
 </div>
 
+<div class="history-y-pan disabled" id="historyYPanWrap">
+<input id="historyYPan" type="range" min="-100" max="100" value="0" step="1" aria-label="Pan temperature scale up and down">
+</div>
+
 </div>
 
 <div class="history-controls" aria-label="Graph zoom controls">
   <span id="zoomLevel" class="zoom-level" aria-live="polite">100%</span>
   <button id="zoomResetBtn" type="button" class="secondary">Reset zoom</button>
 </div>
-<div class="history-hint">← Swipe / drag to pan • pinch or Ctrl + wheel to zoom both axes • deployment APP v27 →</div>
+<div class="history-hint">← Swipe / drag to pan • pinch or Ctrl + wheel to zoom both axes • deployment APP v28 →</div>
 
 <div class="legend">
 
@@ -903,6 +910,7 @@ let dailyElectricity =
 let completeEnergyDates =
   [];
 let historyZoom = 1;
+let historyYPan = 0;
 const HISTORY_ZOOM_MIN = 0.5;
 const HISTORY_ZOOM_MAX = 6;
 
@@ -958,6 +966,7 @@ $("compareTariffsBtn")
 enableHistoryDrag();
 enableHistoryZoom();
 $("zoomResetBtn").addEventListener("click", () => resetHistoryZoom());
+$("historyYPan").addEventListener("input", event => { historyYPan = Number(event.target.value) / 100; draw(); });
 
 
 // =====================================================
@@ -3318,11 +3327,22 @@ function draw() {
   const visibleSpan =
     Math.max(5,baseSpan / historyZoom);
 
-  let low =
-    baseCentre - visibleSpan / 2;
+  const availablePan =
+    Math.max(0,(baseSpan - visibleSpan) / 2);
 
-  let high =
-    baseCentre + visibleSpan / 2;
+  const centre =
+    baseCentre + historyYPan * availablePan;
+
+  let low = centre - visibleSpan / 2;
+  let high = centre + visibleSpan / 2;
+
+  const yPanWrap = $("historyYPanWrap");
+  const yPanInput = $("historyYPan");
+  if (yPanWrap && yPanInput) {
+    const enabled = availablePan > 0.01;
+    yPanInput.disabled = !enabled;
+    yPanWrap.classList.toggle("disabled",!enabled);
+  }
 
   const X =
     time =>
@@ -3616,6 +3636,8 @@ function setHistoryZoom(
 function resetHistoryZoom() {
   const scroller = $("historyScroll");
   historyZoom = 1;
+  historyYPan = 0;
+  $("historyYPan").value = "0";
   $("zoomLevel").textContent = "100%";
   scroller.scrollTop = 0;
   const axis = $("historyAxis");
