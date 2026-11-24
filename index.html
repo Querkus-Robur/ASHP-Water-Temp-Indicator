@@ -336,7 +336,7 @@ button.secondary{
 
 <main class="card">
 
-<h1>Daikin Altherma Status <span style="display:inline-block;margin-left:.45rem;padding:.18rem .48rem;border-radius:999px;background:#0b78c4;color:#fff;font-size:.62rem;vertical-align:middle;letter-spacing:.04em">APP v30</span></h1>
+<h1>Daikin Altherma Status <span style="display:inline-block;margin-left:.45rem;padding:.18rem .48rem;border-radius:999px;background:#0b78c4;color:#fff;font-size:.62rem;vertical-align:middle;letter-spacing:.04em">APP v31</span></h1>
 
 <p class="subtitle">
   Cloud-collected temperature, schedule and whole-house energy monitor
@@ -436,7 +436,7 @@ button.secondary{
   <span id="zoomLevel" class="zoom-level" aria-live="polite">100%</span>
   <button id="zoomResetBtn" type="button" class="secondary">Reset zoom</button>
 </div>
-<div class="history-hint">← Drag in any direction to pan • pinch or Ctrl + wheel to zoom both axes • deployment APP v30 →</div>
+<div class="history-hint">← Drag in any direction to pan • pinch or Ctrl + wheel to zoom both axes • deployment APP v31 →</div>
 
 <div class="legend">
 
@@ -3158,7 +3158,8 @@ function draw() {
         finite(sample.tank)
         ||
         finite(sample.room) ||
-        finite(sample.outdoor)
+        finite(sample.outdoor) ||
+        finite(sample.roomTarget)
     );
 
   const dpr =
@@ -3267,7 +3268,8 @@ function draw() {
         sample.lwt,
         sample.tank,
         sample.room,
-        sample.outdoor
+        sample.outdoor,
+        sample.roomTarget
       ].forEach(
         value => {
           if (finite(value)) {
@@ -3305,10 +3307,11 @@ function draw() {
     );
   }
 
+  // Always retain enough domain to show sub-zero outdoor temperatures.
   const baseLow =
     values.length
-      ? Math.floor((Math.min(...values) - 3) / 5) * 5
-      : 15;
+      ? Math.min(-5, Math.floor((Math.min(...values) - 3) / 5) * 5)
+      : -5;
 
   const baseHigh =
     values.length
@@ -3550,6 +3553,7 @@ function draw() {
   drawSeries(ctx,recent,"tank","#8b5cf6",X,Y);
   drawSeries(ctx,recent,"outdoor","#64748b",X,Y);
   drawSeries(ctx,recent,"room","#16a34a",X,Y);
+  drawSeries(ctx,recent,"roomTarget","#ef4444",X,Y,true);
 
   drawNeoHubSeries(ctx,neoHubHistory,"Zone 7","actualTemp","#0f766e",X,Y,false);
   drawNeoHubSeries(ctx,neoHubHistory,"Zone 7","targetTemp","#14b8a6",X,Y,true);
@@ -3796,7 +3800,7 @@ function enableHistoryDrag() {
         const currentValues = [];
 
         samples.forEach(sample => {
-          [sample.lwt,sample.tank,sample.room,sample.outdoor].forEach(value => {
+          [sample.lwt,sample.tank,sample.room,sample.outdoor,sample.roomTarget].forEach(value => {
             if (finite(value)) currentValues.push(value);
           });
         });
@@ -3997,7 +4001,8 @@ function drawSeries(
   key,
   colour,
   X,
-  Y
+  Y,
+  dashed = false
 ) {
 
   const points =
@@ -4020,6 +4025,8 @@ function drawSeries(
 
   ctx.strokeStyle =
     colour;
+
+  ctx.setLineDash(dashed ? [5,3] : []);
 
   ctx.lineWidth =
     2;
@@ -4068,6 +4075,7 @@ function drawSeries(
 
 
   ctx.stroke();
+  ctx.setLineDash([]);
 
 }
 
